@@ -748,7 +748,7 @@ const TransactionEditInner = memo(function TransactionEditInner({
             zeroSign="-"
             focused={totalAmountFocused}
             onFocus={onTotalAmountEdit}
-            onUpdate={onTotalAmountUpdate}
+            onUpdateAmount={onTotalAmountUpdate}
             focusedStyle={{
               width: 'auto',
               padding: '5px',
