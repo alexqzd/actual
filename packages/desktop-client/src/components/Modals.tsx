@@ -260,13 +260,17 @@ export function Modals() {
 
         case 'edit-field':
           return (
-            <EditField
-              key={name}
-              modalProps={modalProps}
-              name={options.name}
-              onSubmit={options.onSubmit}
-              onClose={options.onClose}
-            />
+            <NamespaceContext.Provider
+              value={monthUtils.sheetForMonth(options.month)}
+            >
+              <EditField
+                key={name}
+                modalProps={modalProps}
+                name={options.name}
+                onSubmit={options.onSubmit}
+                onClose={options.onClose}
+              />
+            </NamespaceContext.Provider>
           );
 
         case 'category-autocomplete':
