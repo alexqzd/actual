@@ -95,11 +95,10 @@ export function CategoryMenuModal({
       focusAfterClose={false}
       {...modalProps}
       onClose={_onClose}
-      padding={0}
+      padding={10}
       style={{
         flex: 1,
         height: '45vh',
-        padding: '0 10px',
         borderRadius: '6px',
       }}
       leftHeaderContent={
@@ -143,7 +142,7 @@ export function CategoryMenuModal({
             flexWrap: 'wrap',
             justifyContent: 'space-between',
             alignContent: 'space-between',
-            margin: '10px 0',
+            paddingTop: 10,
           }}
         >
           <Button style={buttonStyle} onClick={_onEditNotes}>

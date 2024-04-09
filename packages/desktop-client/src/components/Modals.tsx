@@ -23,9 +23,9 @@ import { ConfirmCategoryDelete } from './modals/ConfirmCategoryDelete';
 import { ConfirmTransactionEdit } from './modals/ConfirmTransactionEdit';
 import { ConfirmUnlinkAccount } from './modals/ConfirmUnlinkAccount';
 import { CoverModal } from './modals/CoverModal';
-import { CreateAccount } from './modals/CreateAccount';
+import { CreateAccountModal } from './modals/CreateAccountModal';
 import { CreateEncryptionKey } from './modals/CreateEncryptionKey';
-import { CreateLocalAccount } from './modals/CreateLocalAccount';
+import { CreateLocalAccountModal } from './modals/CreateLocalAccountModal';
 import { EditField } from './modals/EditField';
 import { EditRule } from './modals/EditRule';
 import { FixEncryptionKey } from './modals/FixEncryptionKey';
@@ -98,7 +98,7 @@ export function Modals() {
 
         case 'add-account':
           return (
-            <CreateAccount
+            <CreateAccountModal
               modalProps={modalProps}
               syncServerStatus={syncServerStatus}
               upgradingAccountId={options?.upgradingAccountId}
@@ -107,7 +107,10 @@ export function Modals() {
 
         case 'add-local-account':
           return (
-            <CreateLocalAccount modalProps={modalProps} actions={actions} />
+            <CreateLocalAccountModal
+              modalProps={modalProps}
+              actions={actions}
+            />
           );
 
         case 'close-account':

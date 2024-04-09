@@ -165,7 +165,7 @@ export const Modal = ({
                 position: 'absolute',
                 left: 0,
                 marginRight: !isNarrowWidth ? 5 : undefined,
-                marginLeft: !isNarrowWidth ? 15 : undefined,
+                marginLeft: !isNarrowWidth ? 15 : 5,
               }}
             >
               {leftHeaderContent}
@@ -199,7 +199,7 @@ export const Modal = ({
               style={{
                 position: 'absolute',
                 right: 0,
-                marginRight: !isNarrowWidth ? 15 : undefined,
+                marginRight: !isNarrowWidth ? 15 : 5,
                 marginLeft: !isNarrowWidth ? 5 : undefined,
               }}
             >

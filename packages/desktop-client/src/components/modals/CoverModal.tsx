@@ -71,45 +71,39 @@ export function CoverModal({
       showHeader
       focusAfterClose={false}
       {...modalProps}
-      padding={0}
+      padding={10}
       style={{
         flex: 1,
-        padding: '0 10px',
-        paddingBottom: 10,
         borderRadius: '6px',
       }}
     >
-      {() => (
-        <>
-          <View>
-            <FieldLabel title="Cover from category:" />
-            <TapField
-              value={categories.find(c => c.id === fromCategoryId)?.name}
-              onClick={onCategoryClick}
-            />
-          </View>
+      <View>
+        <FieldLabel title="Cover from category:" />
+        <TapField
+          value={categories.find(c => c.id === fromCategoryId)?.name}
+          onClick={onCategoryClick}
+        />
+      </View>
 
-          <View
-            style={{
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginTop: 10,
-            }}
-          >
-            <Button
-              type="primary"
-              style={{
-                height: styles.mobileMinHeight,
-                marginLeft: styles.mobileEditingPadding,
-                marginRight: styles.mobileEditingPadding,
-              }}
-              onClick={() => _onSubmit(fromCategoryId)}
-            >
-              Transfer
-            </Button>
-          </View>
-        </>
-      )}
+      <View
+        style={{
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingTop: 10,
+        }}
+      >
+        <Button
+          type="primary"
+          style={{
+            height: styles.mobileMinHeight,
+            marginLeft: styles.mobileEditingPadding,
+            marginRight: styles.mobileEditingPadding,
+          }}
+          onClick={() => _onSubmit(fromCategoryId)}
+        >
+          Transfer
+        </Button>
+      </View>
     </Modal>
   );
 }
