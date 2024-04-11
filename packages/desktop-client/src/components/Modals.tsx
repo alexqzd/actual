@@ -284,6 +284,7 @@ export function Modals() {
                 onSelect: options.onSelect,
                 showHiddenCategories: options.showHiddenCategories,
               }}
+              month={options.month}
               onClose={options.onClose}
             />
           );
@@ -530,6 +531,7 @@ export function Modals() {
             <TransferModal
               modalProps={modalProps}
               title={options.title}
+              month={options.month}
               amount={options.amount}
               onSubmit={options.onSubmit}
               showToBeBudgeted={options.showToBeBudgeted}
@@ -541,6 +543,7 @@ export function Modals() {
             <CoverModal
               modalProps={modalProps}
               categoryId={options.categoryId}
+              month={options.month}
               onSubmit={options.onSubmit}
             />
           );

@@ -274,6 +274,7 @@ const ExpenseCategory = memo(function ExpenseCategory({
     dispatch(
       pushModal('transfer', {
         title: `Transfer: ${category.name}`,
+        month,
         amount: catBalance,
         onSubmit: (amount, toCategoryId) => {
           onBudgetAction(month, 'transfer-category', {
@@ -292,6 +293,7 @@ const ExpenseCategory = memo(function ExpenseCategory({
     dispatch(
       pushModal('cover', {
         categoryId: category.id,
+        month,
         onSubmit: fromCategoryId => {
           onBudgetAction(month, 'cover', {
             to: category.id,
