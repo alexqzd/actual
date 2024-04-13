@@ -131,7 +131,6 @@ export function ToBudget({
 
   const schedules = useMemo(
     ()  => {
-      console.log('Calculating schedules for month', month);
       return scheduleData
         ? scheduleData.schedules.filter(
             s =>
@@ -157,14 +156,22 @@ export function ToBudget({
   const schedulesThisMonth = useMemo(() => {
     const schedulesThisMonth = [];
     schedules.forEach(s => {
-      const occurrences = getScheduleOcurrencesUpToMonth({ config: s._date, month: month });
-      console.log('Occurrences for schedule', s.name, occurrences);
-      const timesThisMonth = occurrences.length;
-      if (timesThisMonth > 0) {
-        const id = s.id;
-        const amount = s._amount;
-        const frequency = s._date.frequency;
-        schedulesThisMonth.push({ id, name: s.name, amount: amount, frequency, timesThisMonth });
+      var occurrences = getScheduleOcurrencesUpToMonth({ config: s._date, month: month });
+      const alreadyPaid = scheduleData.statuses.get(s.id) === 'paid';
+      // if already paid, we don't want to count it if the month we are processing is the current month
+      // because the schedule is only shown as paid in the day of the schedule
+      if (alreadyPaid) {
+        // drop first occurrence because it's the one that has already been paid
+        occurrences = occurrences.slice(1);
+      }
+      if (!alreadyPaid || monthFromDate(s.next_date) !== month) {
+        const timesThisMonth = occurrences.length;
+        if (timesThisMonth > 0) {
+          const id = s.id;
+          const amount = s._amount;
+          const frequency = s._date.frequency;
+          schedulesThisMonth.push({ id, name: s.name, amount: amount, frequency, timesThisMonth });
+        }
       }
     });
     return schedulesThisMonth;
@@ -276,7 +283,7 @@ export function ToBudget({
       </View>
       {isNegative && (
         <View style={{ alignItems: 'center', marginTop: 15, ...style }}>
-        <Block>Expected to budget</Block>
+        <Block>Expected to budget:</Block>
         <PrivacyFilter blurIntensity={7}>
             <Block
               className={`${css([
