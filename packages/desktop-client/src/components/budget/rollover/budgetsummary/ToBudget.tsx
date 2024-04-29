@@ -166,10 +166,10 @@ export function ToBudget({
         const today = currentDate();
         const nextDate = new Date(s.next_date); // Convert s.next_date to a Date object
         console.log(s.name, "is already paid, next date", nextDate, "today", today);
-        if (today >= nextDate) {
+      //  if (today >= nextDate) {
           console.log(s.name, "is already paid, removing first occurrence");
           occurrences = occurrences.slice(1);
-        }
+       // }
       }
       if (!alreadyPaid || monthFromDate(s.next_date) !== month) {
         const timesThisMonth = occurrences.length;
