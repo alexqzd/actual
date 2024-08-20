@@ -12,6 +12,7 @@ import { TransferMenu } from '../TransferMenu';
 
 import { ToBudgetAmount } from './ToBudgetAmount';
 import { ToBudgetMenu } from './ToBudgetMenu';
+import { ForecastedToBudgetAmount } from './ForecastedToBudgetAmount';
 
 type ToBudgetProps = {
   month: string;
@@ -47,6 +48,14 @@ export function ToBudget({
           style={style}
           amountStyle={amountStyle}
           isTotalsListTooltipDisabled={!isCollapsed || isMenuOpen}
+        />
+        <ForecastedToBudgetAmount
+          month={month}
+          prevMonthName={prevMonthName}
+          style={style}
+          amountStyle={amountStyle}
+          onClick={void 0}
+          isTotalsListTooltipDisabled={true}
         />
       </View>
 
