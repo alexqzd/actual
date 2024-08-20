@@ -14,6 +14,7 @@ import { TotalsList } from '../budget/envelope/budgetsummary/TotalsList';
 import { useEnvelopeSheetValue } from '../budget/envelope/EnvelopeBudgetComponents';
 import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
 import { NamespaceContext } from '../spreadsheet/NamespaceContext';
+import { ForecastedToBudgetAmount } from '../budget/envelope/budgetsummary/ForecastedToBudgetAmount';
 
 type EnvelopeBudgetSummaryModalProps = {
   onBudgetAction: (month: string, action: string, arg?: unknown) => void;
@@ -134,6 +135,14 @@ export function EnvelopeBudgetSummaryModal({
               onClick={() => onClick({ close })}
               isTotalsListTooltipDisabled={true}
             />
+            <ForecastedToBudgetAmount
+          month={month}
+          prevMonthName={prevMonthName}
+          style={styles.mediumText}
+          amountStyle={styles.underlinedText}
+          onClick={void 0}
+          isTotalsListTooltipDisabled={true}
+        />
           </NamespaceContext.Provider>
         </>
       )}
