@@ -60,26 +60,29 @@ function getScheduleOcurrencesUpToMonth({ s, month }) {
 
     var count = 366;
 
-    if (config.frequency === 'daily') {
-      count = 31;
-    } else if (config.frequency === 'weekly') {
-      count = 4;
-    }
-
     const yearMonth = String(month).slice(0, 7);
     const year = Number(yearMonth.slice(0, 4));
     const monthIndex = Number(yearMonth.slice(5, 7)) - 1; // month is 0-indexed
     const firstDayMonth = new Date(year, monthIndex, 1);
 
+    // netx_date is a string in the format "YYYY-MM-DD"
+    // parse the next_date to a Date object, use slic
+    const nextDateYYYY = s.next_date.slice(0, 4);
+    const nextDateMM = s.next_date.slice(5, 7);
+    const nextDateDD = s.next_date.slice(8, 10);
+    const nextDate = new Date(Number(nextDateYYYY), Number(nextDateMM) - 1, Number(nextDateDD));
+
+    const start_search = d.startOfMonth(nextDate);
+
+
     return schedule
-      .occurrences({ start: s.next_date, end: d.endOfMonth(firstDayMonth), take: count })
+      .occurrences({ start: start_search, end: d.endOfMonth(firstDayMonth), take: count })
       .toArray()
       .map(date =>
         config.skipWeekend
           ? getDateWithSkippedWeekend(date.date, config.weekendSolveMode)
           : date.date,
       )//.filter(date => monthFromDate(date) === month).map(date => dayFromDate(date))
-      .map(date => dayFromDate(date));
   } catch (err) {
     captureBreadcrumb(config);
     throw err;
@@ -137,7 +140,7 @@ export function calculateForecastedToBudgetAmount({ month }) {
     const schedulesThisMonth = [];
     schedules.forEach(s => {
       var occurrences = getScheduleOcurrencesUpToMonth({ s: s, month: month });
-      console.log(s.name, "occurrences", occurrences, "in month", month, "status", scheduleData.statuses.get(s.id));
+      //console.log(s.name, "occurrences", occurrences, "in month", month, "status", scheduleData.statuses.get(s.id));
       const alreadyPaid = scheduleData.statuses.get(s.id) === 'paid';
       // if already paid, we don't want to count it if the month we are processing is the current month
       // because the schedule is only shown as paid in the day of the schedule
@@ -169,7 +172,6 @@ export function calculateForecastedToBudgetAmount({ month }) {
   const totalIncomeExpected = useMemo(() => {
     return schedulesThisMonth.reduce((acc, s) => acc + s.amount * s.timesThisMonth, 0) + num;
   }, [schedulesThisMonth, num]);
-  console.log("totalIncomeExpected", totalIncomeExpected);
   return totalIncomeExpected;
 }
 
@@ -199,7 +201,7 @@ export function ForecastedToBudgetAmount({
       {isNegative && (
         <View style={{ alignItems: 'center', marginTop: 15, ...style }}>
         <Block>Expected to budget:</Block>
-        <PrivacyFilter blurIntensity={7}>
+        <PrivacyFilter>
             <Block
               className={`${css([
                 styles.veryLargeText,
