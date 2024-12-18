@@ -1,10 +1,16 @@
-import React, { useCallback, type ComponentPropsWithoutRef } from 'react';
+import React, {
+  useMemo,
+  type ComponentPropsWithoutRef,
+  type CSSProperties,
+} from 'react';
+
+import { t } from 'i18next';
 
 import { useSchedules } from 'loot-core/client/data-hooks/schedules';
 import { format } from 'loot-core/shared/months';
-import { type Query } from 'loot-core/shared/query';
+import { q } from 'loot-core/shared/query';
 
-import { type CSSProperties, theme, styles } from '../../style';
+import { theme, styles } from '../../style';
 import { Menu } from '../common/Menu';
 import {
   Modal,
@@ -29,24 +35,26 @@ export function ScheduledTransactionMenuModal({
     borderTop: `1px solid ${theme.pillBorder}`,
   };
   const scheduleId = transactionId?.split('/')?.[1];
-  const scheduleData = useSchedules({
-    transform: useCallback(
-      (q: Query) => q.filter({ id: scheduleId }),
-      [scheduleId],
-    ),
+  const schedulesQuery = useMemo(
+    () => q('schedules').filter({ id: scheduleId }).select('*'),
+    [scheduleId],
+  );
+  const { isLoading: isSchedulesLoading, schedules } = useSchedules({
+    query: schedulesQuery,
   });
-  const schedule = scheduleData?.schedules?.[0];
 
-  if (!schedule) {
+  if (isSchedulesLoading) {
     return null;
   }
+
+  const schedule = schedules?.[0];
 
   return (
     <Modal name="scheduled-transaction-menu">
       {({ state: { close } }) => (
         <>
           <ModalHeader
-            title={<ModalTitle title={schedule.name || ''} shrinkOnOverflow />}
+            title={<ModalTitle title={schedule?.name || ''} shrinkOnOverflow />}
             rightContent={<ModalCloseButton onPress={close} />}
           />
           <View
@@ -57,10 +65,10 @@ export function ScheduledTransactionMenuModal({
             }}
           >
             <Text style={{ fontSize: 17, fontWeight: 400 }}>
-              Scheduled date
+              {t('Scheduled date')}
             </Text>
             <Text style={{ fontSize: 17, fontWeight: 700 }}>
-              {format(schedule.next_date, 'MMMM dd, yyyy')}
+              {format(schedule?.next_date || '', 'MMMM dd, yyyy')}
             </Text>
           </View>
           <ScheduledTransactionMenu
@@ -108,11 +116,11 @@ function ScheduledTransactionMenu({
       items={[
         {
           name: 'post',
-          text: 'Post transaction',
+          text: t('Post transaction'),
         },
         {
           name: 'skip',
-          text: 'Skip scheduled date',
+          text: t('Skip scheduled date'),
         },
       ]}
     />

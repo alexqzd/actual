@@ -1,5 +1,6 @@
 // @ts-strict-ignore
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 
@@ -35,13 +36,16 @@ import { EnvelopeBudgetMonthMenuModal } from './modals/EnvelopeBudgetMonthMenuMo
 import { EnvelopeBudgetSummaryModal } from './modals/EnvelopeBudgetSummaryModal';
 import { EnvelopeToBudgetMenuModal } from './modals/EnvelopeToBudgetMenuModal';
 import { FixEncryptionKeyModal } from './modals/FixEncryptionKeyModal';
+import { GoalTemplateModal } from './modals/GoalTemplateModal';
 import { GoCardlessExternalMsgModal } from './modals/GoCardlessExternalMsgModal';
 import { GoCardlessInitialiseModal } from './modals/GoCardlessInitialiseModal';
 import { HoldBufferModal } from './modals/HoldBufferModal';
 import { ImportTransactionsModal } from './modals/ImportTransactionsModal';
 import { KeyboardShortcutModal } from './modals/KeyboardShortcutModal';
 import { LoadBackupModal } from './modals/LoadBackupModal';
+import { ConfirmChangeDocumentDirModal } from './modals/manager/ConfirmChangeDocumentDir';
 import { DeleteFileModal } from './modals/manager/DeleteFileModal';
+import { FilesSettingsModal } from './modals/manager/FilesSettingsModal';
 import { ImportActualModal } from './modals/manager/ImportActualModal';
 import { ImportModal } from './modals/manager/ImportModal';
 import { ImportYNAB4Modal } from './modals/manager/ImportYNAB4Modal';
@@ -49,6 +53,7 @@ import { ImportYNAB5Modal } from './modals/manager/ImportYNAB5Modal';
 import { ManageRulesModal } from './modals/ManageRulesModal';
 import { MergeUnusedPayeesModal } from './modals/MergeUnusedPayeesModal';
 import { NotesModal } from './modals/NotesModal';
+import { OutOfSyncMigrationsModal } from './modals/OutOfSyncMigrationsModal';
 import { PayeeAutocompleteModal } from './modals/PayeeAutocompleteModal';
 import { ScheduledTransactionMenuModal } from './modals/ScheduledTransactionMenuModal';
 import { SelectLinkedAccountsModal } from './modals/SelectLinkedAccountsModal';
@@ -77,9 +82,14 @@ export function Modals() {
     }
   }, [location]);
 
+  const { t } = useTranslation();
+
   const modals = modalStack
     .map(({ name, options }) => {
       switch (name) {
+        case 'goal-templates':
+          return budgetId ? <GoalTemplateModal key={name} /> : null;
+
         case 'keyboard-shortcuts':
           // don't show the hotkey help modal when a budget is not open
           return budgetId ? <KeyboardShortcutModal key={name} /> : null;
@@ -280,10 +290,12 @@ export function Modals() {
               Header={props => (
                 <ModalHeader
                   {...props}
-                  title={<ModalTitle title="New Category" shrinkOnOverflow />}
+                  title={
+                    <ModalTitle title={t('New Category')} shrinkOnOverflow />
+                  }
                 />
               )}
-              inputPlaceholder="Category name"
+              inputPlaceholder={t('Category name')}
               buttonText="Add"
               onValidate={options.onValidate}
               onSubmit={options.onSubmit}
@@ -299,12 +311,15 @@ export function Modals() {
                 <ModalHeader
                   {...props}
                   title={
-                    <ModalTitle title="New Category Group" shrinkOnOverflow />
+                    <ModalTitle
+                      title={t('New Category Group')}
+                      shrinkOnOverflow
+                    />
                   }
                 />
               )}
-              inputPlaceholder="Category group name"
-              buttonText="Add"
+              inputPlaceholder={t('Category group name')}
+              buttonText={t('Add')}
               onValidate={options.onValidate}
               onSubmit={options.onSubmit}
             />
@@ -573,21 +588,24 @@ export function Modals() {
           return <DeleteFileModal key={name} file={options.file} />;
         case 'import':
           return <ImportModal key={name} />;
+        case 'files-settings':
+          return <FilesSettingsModal key={name} />;
+        case 'confirm-change-document-dir':
+          return (
+            <ConfirmChangeDocumentDirModal
+              key={name}
+              currentBudgetDirectory={options.currentBudgetDirectory}
+              newDirectory={options.newDirectory}
+            />
+          );
         case 'import-ynab4':
           return <ImportYNAB4Modal key={name} />;
         case 'import-ynab5':
           return <ImportYNAB5Modal key={name} />;
         case 'import-actual':
           return <ImportActualModal key={name} />;
-        case 'manager-load-backup':
-          return (
-            <LoadBackupModal
-              key={name}
-              budgetId={options.budgetId}
-              backupDisabled={true}
-              watchUpdates={false}
-            />
-          );
+        case 'out-of-sync-migrations':
+          return <OutOfSyncMigrationsModal key={name} />;
 
         default:
           throw new Error('Unknown modal');

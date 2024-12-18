@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { useSpring, animated } from 'react-spring';
 
-import { css } from 'glamor';
+import { css } from '@emotion/css';
 
 import { addMonths, subMonths } from 'loot-core/src/shared/months';
 
@@ -31,7 +31,7 @@ export function BudgetSummaries({ SummaryComponent }: BudgetSummariesProps) {
     config: { mass: 3, tension: 600, friction: 80 },
   }));
 
-  const containerRef = useResizeObserver(
+  const containerRef = useResizeObserver<HTMLDivElement>(
     useCallback(rect => {
       setWidthState(rect.width);
     }, []),
@@ -67,13 +67,13 @@ export function BudgetSummaries({ SummaryComponent }: BudgetSummariesProps) {
 
   return (
     <div
-      className={`${css([
+      className={css([
         { flex: 1, overflow: 'hidden' },
         months.length === 1 && {
           marginLeft: -4,
           marginRight: -4,
         },
-      ])}`}
+      ])}
       ref={containerRef}
     >
       <animated.div

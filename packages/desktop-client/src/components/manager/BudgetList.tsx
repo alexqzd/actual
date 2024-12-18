@@ -12,7 +12,10 @@ import {
   loadBudget,
   pushModal,
 } from 'loot-core/client/actions';
-import { isNonProductionEnvironment } from 'loot-core/src/shared/environment';
+import {
+  isElectron,
+  isNonProductionEnvironment,
+} from 'loot-core/src/shared/environment';
 import {
   type File,
   type LocalFile,
@@ -26,11 +29,11 @@ import { AnimatedLoading } from '../../icons/AnimatedLoading';
 import {
   SvgCloudCheck,
   SvgCloudDownload,
+  SvgCog,
   SvgDotsHorizontalTriple,
   SvgFileDouble,
 } from '../../icons/v1';
 import { SvgCloudUnknown, SvgKey, SvgRefreshArrow } from '../../icons/v2';
-import { useResponsive } from '../../ResponsiveProvider';
 import { styles, theme } from '../../style';
 import { tokens } from '../../tokens';
 import { Button } from '../common/Button2';
@@ -38,6 +41,7 @@ import { Menu } from '../common/Menu';
 import { Popover } from '../common/Popover';
 import { Text } from '../common/Text';
 import { View } from '../common/View';
+import { useResponsive } from '../responsive/ResponsiveProvider';
 
 function getFileDescription(file: File, t: (key: string) => string) {
   if (file.state === 'unknown') {
@@ -324,12 +328,33 @@ function RefreshButton({
   );
 }
 
+function SettingsButton({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <View>
+      <Button
+        variant="bare"
+        aria-label={t('Settings')}
+        onPress={() => {
+          onOpenSettings();
+        }}
+        style={{ padding: 10 }}
+      >
+        <SvgCog style={{ width: 18, height: 18 }} />
+      </Button>
+    </View>
+  );
+}
+
 function BudgetListHeader({
   quickSwitchMode,
   onRefresh,
+  onOpenSettings,
 }: {
   quickSwitchMode: boolean;
   onRefresh: () => void;
+  onOpenSettings: () => void;
 }) {
   return (
     <View
@@ -346,7 +371,17 @@ function BudgetListHeader({
       >
         <Trans>Files</Trans>
       </Text>
-      {!quickSwitchMode && <RefreshButton onRefresh={onRefresh} />}
+      {!quickSwitchMode && (
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: '0.2rem',
+          }}
+        >
+          <RefreshButton onRefresh={onRefresh} />
+          {isElectron() && <SettingsButton onOpenSettings={onOpenSettings} />}
+        </View>
+      )}
     </View>
   );
 }
@@ -425,6 +460,7 @@ export function BudgetList({ showHeader = true, quickSwitchMode = false }) {
         <BudgetListHeader
           quickSwitchMode={quickSwitchMode}
           onRefresh={refresh}
+          onOpenSettings={() => dispatch(pushModal('files-settings'))}
         />
       )}
       <BudgetFiles

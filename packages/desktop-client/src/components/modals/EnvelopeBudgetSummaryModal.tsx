@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDispatch } from 'react-redux';
 
 import { collapseModals, pushModal } from 'loot-core/client/actions';
@@ -36,11 +37,12 @@ export function EnvelopeBudgetSummaryModal({
   const { showUndoNotification } = useUndo();
   const { list: categories } = useCategories();
   const categoriesById = groupById(categories);
+  const { t } = useTranslation();
 
   const openTransferAvailableModal = () => {
     dispatch(
       pushModal('transfer', {
-        title: 'Transfer: To Budget',
+        title: t('Transfer: To Budget'),
         month,
         amount: sheetValue,
         onSubmit: (amount, toCategoryId) => {
@@ -61,7 +63,7 @@ export function EnvelopeBudgetSummaryModal({
   const openCoverOverbudgetedModal = () => {
     dispatch(
       pushModal('cover', {
-        title: 'Cover: Overbudgeted',
+        title: t('Cover: Overbudgeted'),
         month,
         showToBeBudgeted: false,
         onSubmit: categoryId => {
@@ -113,7 +115,7 @@ export function EnvelopeBudgetSummaryModal({
       {({ state: { close } }) => (
         <>
           <ModalHeader
-            title="Budget Summary"
+            title={t('Budget Summary')}
             rightContent={<ModalCloseButton onPress={close} />}
           />
           <NamespaceContext.Provider value={sheetForMonth(month)}>

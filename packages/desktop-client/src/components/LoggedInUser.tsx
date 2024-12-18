@@ -1,12 +1,13 @@
 // @ts-strict-ignore
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 
 import { type State } from 'loot-core/src/client/state-types';
 
 import { useActions } from '../hooks/useActions';
-import { theme, styles, type CSSProperties } from '../style';
+import { useNavigate } from '../hooks/useNavigate';
+import { theme, styles } from '../style';
 
 import { Button } from './common/Button2';
 import { Menu } from './common/Menu';
@@ -38,9 +39,11 @@ export function LoggedInUser({
     getUserData().then(() => setLoading(false));
   }, []);
 
+  const navigate = useNavigate();
+
   async function onChangePassword() {
     await closeBudget();
-    window.__navigate('/change-password');
+    navigate('/change-password');
   }
 
   async function onMenuSelect(type) {
@@ -52,14 +55,14 @@ export function LoggedInUser({
         break;
       case 'sign-in':
         await closeBudget();
-        window.__navigate('/login');
+        navigate('/login');
         break;
       case 'sign-out':
         signOut();
         break;
       case 'config-server':
         await closeBudget();
-        window.__navigate('/config-server');
+        navigate('/config-server');
         break;
       default:
     }
@@ -108,6 +111,7 @@ export function LoggedInUser({
       </Button>
 
       <Popover
+        offset={8}
         triggerRef={triggerRef}
         isOpen={menuOpen}
         onOpenChange={() => setMenuOpen(false)}

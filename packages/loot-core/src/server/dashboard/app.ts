@@ -81,6 +81,7 @@ const exportModel = {
           'spending-card',
           'custom-report',
           'markdown-card',
+          'summary-card',
         ].includes(widget.type)
       ) {
         throw new ValidationError(
@@ -194,7 +195,7 @@ async function importDashboard({ filepath }: { filepath: string }) {
             y: widget.y,
             meta: isExportedCustomReportWidget(widget)
               ? { id: widget.meta.id }
-              : null,
+              : widget.meta,
           }),
         ),
 

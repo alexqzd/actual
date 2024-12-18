@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 
 import { envelopeBudget } from 'loot-core/src/client/queries';
 
@@ -20,13 +20,23 @@ export function BalanceMovementMenu({
   onBudgetAction,
   onClose = () => {},
 }: BalanceMovementMenuProps) {
-  const catBalance = useEnvelopeSheetValue(
-    envelopeBudget.catBalance(categoryId),
+  const catBalance =
+    useEnvelopeSheetValue(envelopeBudget.catBalance(categoryId)) ?? 0;
+
+  const [menu, _setMenu] = useState('menu');
+
+  const ref = useRef<HTMLSpanElement>(null);
+  // Keep focus inside the popover on menu change
+  const setMenu = useCallback(
+    (menu: string) => {
+      ref.current?.focus();
+      _setMenu(menu);
+    },
+    [ref],
   );
-  const [menu, setMenu] = useState('menu');
 
   return (
-    <>
+    <span tabIndex={-1} ref={ref}>
       {menu === 'menu' && (
         <BalanceMenu
           categoryId={categoryId}
@@ -70,6 +80,6 @@ export function BalanceMovementMenu({
           }}
         />
       )}
-    </>
+    </span>
   );
 }

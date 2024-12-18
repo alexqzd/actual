@@ -1,9 +1,14 @@
-import React, { type ComponentPropsWithoutRef } from 'react';
+import React, {
+  type ComponentPropsWithoutRef,
+  type CSSProperties,
+} from 'react';
+
+import { t } from 'i18next';
 
 import { envelopeBudget } from 'loot-core/client/queries';
 
 import { useCategory } from '../../hooks/useCategory';
-import { type CSSProperties, theme, styles } from '../../style';
+import { theme, styles } from '../../style';
 import {
   BalanceWithCarryover,
   CarryoverIndicator,
@@ -63,7 +68,7 @@ export function EnvelopeBalanceMenuModal({
                 fontWeight: 400,
               }}
             >
-              Balance
+              {t('Balance')}
             </Text>
             <BalanceWithCarryover
               isDisabled

@@ -126,7 +126,7 @@ describe('Transaction rules', () => {
     spy.mockRestore();
 
     // Finally make sure the rule is actually in place and runs
-    const transaction = runRules({
+    const transaction = await runRules({
       date: '2019-05-10',
       notes: '',
       category: null,
@@ -149,7 +149,7 @@ describe('Transaction rules', () => {
     });
     expect(getRules().length).toBe(1);
 
-    let transaction = runRules({
+    let transaction = await runRules({
       imported_payee: 'Kroger',
       notes: '',
       category: null,
@@ -165,7 +165,7 @@ describe('Transaction rules', () => {
     });
     expect(getRules().length).toBe(1);
 
-    transaction = runRules({
+    transaction = await runRules({
       imported_payee: 'Kroger',
       notes: '',
       category: null,
@@ -179,7 +179,7 @@ describe('Transaction rules', () => {
       id,
       conditions: [{ op: 'is', field: 'imported_payee', value: 'ABC' }],
     });
-    transaction = runRules({
+    transaction = await runRules({
       imported_payee: 'ABC',
       notes: '',
       category: null,
@@ -201,7 +201,7 @@ describe('Transaction rules', () => {
     });
     expect(getRules().length).toBe(1);
 
-    let transaction = runRules({
+    let transaction = await runRules({
       payee: 'Kroger',
       notes: '',
       category: null,
@@ -211,7 +211,7 @@ describe('Transaction rules', () => {
 
     await deleteRule(id);
     expect(getRules().length).toBe(0);
-    transaction = runRules({
+    transaction = await runRules({
       payee: 'Kroger',
       notes: '',
       category: null,
@@ -242,14 +242,14 @@ describe('Transaction rules', () => {
     await loadRules();
     expect(getRules().length).toBe(2);
 
-    let transaction = runRules({
+    let transaction = await runRules({
       imported_payee: 'blah Lowes blah',
       payee: null,
       category: null,
     });
     expect(transaction.payee).toBe('lowes');
 
-    transaction = runRules({
+    transaction = await runRules({
       imported_payee: 'kroger',
       category: null,
     });
@@ -315,7 +315,7 @@ describe('Transaction rules', () => {
     expect(rule2.conditions[1].value).toBe('beer_id');
   });
 
-  test('runRules runs all the rules in each phase', async () => {
+  test('await runRules runs all the rules in each phase', async () => {
     await loadRules();
     await insertRule({
       stage: 'post',
@@ -354,7 +354,7 @@ describe('Transaction rules', () => {
     });
 
     expect(
-      runRules({
+      await runRules({
         imported_payee: '123 kroger',
         date: '2020-08-11',
         amount: 50,
@@ -372,14 +372,14 @@ describe('Transaction rules', () => {
     await loadRules();
     const account = await db.insertAccount({ name: 'bank' });
     const categoryGroupId = await db.insertCategoryGroup({ name: 'general' });
-    const categoryId = await db.insertCategory({
+    const foodCategoryId = await db.insertCategory({
       name: 'food',
       cat_group: categoryGroupId,
     });
     const krogerId = await db.insertPayee({ name: 'kroger' });
     const lowesId = await db.insertPayee({
       name: 'lowes',
-      category: categoryId,
+      category: foodCategoryId,
     });
 
     await db.insertTransaction({
@@ -387,6 +387,7 @@ describe('Transaction rules', () => {
       date: '2020-10-01',
       account,
       payee: krogerId,
+      category: foodCategoryId,
       notes: 'barr',
       amount: 353,
     });
@@ -419,6 +420,7 @@ describe('Transaction rules', () => {
       date: '2020-10-16',
       account,
       payee: lowesId,
+      category: foodCategoryId,
       notes: '',
       amount: 124,
     });
@@ -492,7 +494,34 @@ describe('Transaction rules', () => {
     ]);
     expect(transactions.map(t => t.id)).toEqual(['4', '5', '2', '3']);
 
+    //Condition special cases
+    //is category null
+    transactions = await getMatchingTransactions([
+      { field: 'category', op: 'is', value: null },
+    ]);
+    expect(transactions.map(t => t.id)).toEqual(['4', '2', '3']);
+
+    //category is not X
+    transactions = await getMatchingTransactions([
+      { field: 'category', op: 'isNot', value: null },
+    ]);
+    expect(transactions.map(t => t.id)).toEqual(['5', '1']);
+
     // todo: isapprox
+  });
+
+  test('and sub expression builds $and condition', async () => {
+    const conds = [{ field: 'category', op: 'is', value: null }];
+    const { filters } = conditionsToAQL(conds);
+    expect(filters).toStrictEqual([
+      {
+        $and: [
+          { category: { $eq: null } },
+          { transfer_id: { $eq: null } },
+          { is_parent: { $eq: false } },
+        ],
+      },
+    ]);
   });
 });
 

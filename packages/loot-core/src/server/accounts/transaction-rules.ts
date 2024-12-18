@@ -16,6 +16,7 @@ import {
 } from '../../types/models';
 import { schemaConfig } from '../aql';
 import * as db from '../db';
+import { getPayee, getPayeeByName, insertPayee } from '../db';
 import { getMappings } from '../db/mappings';
 import { RuleError } from '../errors';
 import { requiredFields, toDateRepr } from '../models';
@@ -273,8 +274,8 @@ function onApplySync(oldValues, newValues) {
 }
 
 // Runner
-export function runRules(trans) {
-  let finalTrans = { ...trans };
+export async function runRules(trans) {
+  let finalTrans = await prepareTransactionForRules({ ...trans });
 
   const rules = rankRules(
     fastSetMerge(
@@ -287,7 +288,35 @@ export function runRules(trans) {
     finalTrans = rules[i].apply(finalTrans);
   }
 
-  return finalTrans;
+  return await finalizeTransactionForRules(finalTrans);
+}
+
+function conditionSpecialCases(cond: Condition): Condition {
+  //special cases that require multiple conditions
+  if (cond.op === 'is' && cond.field === 'category' && cond.value === null) {
+    return new Condition(
+      'and',
+      cond.field,
+      [
+        cond,
+        new Condition('is', 'transfer', false, null),
+        new Condition('is', 'parent', false, null),
+      ],
+      {},
+    );
+  } else if (
+    cond.op === 'isNot' &&
+    cond.field === 'category' &&
+    cond.value === null
+  ) {
+    return new Condition(
+      'and',
+      cond.field,
+      [cond, new Condition('is', 'parent', false, null)],
+      {},
+    );
+  }
+  return cond;
 }
 
 // This does the inverse: finds all the transactions matching a rule
@@ -308,11 +337,13 @@ export function conditionsToAQL(conditions, { recurDateBounds = 100 } = {}) {
         return null;
       }
     })
+    .map(conditionSpecialCases)
     .filter(Boolean);
 
   // rule -> actualql
-  const filters = conditions.map(cond => {
-    const { type, field, op, value, options } = cond;
+  const mapConditionToActualQL = cond => {
+    const { type, options } = cond;
+    let { field, op, value } = cond;
 
     const getValue = value => {
       if (type === 'number') {
@@ -320,6 +351,23 @@ export function conditionsToAQL(conditions, { recurDateBounds = 100 } = {}) {
       }
       return value;
     };
+
+    if (field === 'transfer' && op === 'is') {
+      field = 'transfer_id';
+      if (value) {
+        op = 'isNot';
+        value = null;
+      } else {
+        value = null;
+      }
+    } else if (field === 'parent' && op === 'is') {
+      field = 'is_parent';
+      if (value) {
+        op = 'true';
+      } else {
+        op = 'false';
+      }
+    }
 
     const apply = (field, op, value) => {
       if (type === 'number') {
@@ -461,13 +509,25 @@ export function conditionsToAQL(conditions, { recurDateBounds = 100 } = {}) {
         return { $or: values.map(v => apply(field, '$eq', v)) };
 
       case 'hasTags':
-        const tagValues = value
-          .split(/(?<!#)(#[\w\d\p{Emoji}-]+)(?=\s|$)/gu)
-          .filter(tag => tag.startsWith('#'));
+        const words = value.split(/\s+/);
+        const tagValues = [];
+        words.forEach(word => {
+          const startsWithHash = word.startsWith('#');
+          const containsMultipleHash = word.slice(1).includes('#');
+          const correctlyFormatted = word.match(/#[\w\d\p{Emoji}-]+/gu);
+          const validHashtag =
+            startsWithHash && !containsMultipleHash && correctlyFormatted;
+
+          if (validHashtag) {
+            tagValues.push(word);
+          }
+        });
 
         return {
           $and: tagValues.map(v => {
-            const regex = new RegExp(`(^|\\s)${v}(\\s|$)`);
+            const regex = new RegExp(
+              `(^|\\s)${v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`,
+            );
             return apply(field, '$regexp', regex.source);
           }),
         };
@@ -491,11 +551,16 @@ export function conditionsToAQL(conditions, { recurDateBounds = 100 } = {}) {
         return apply(field, '$eq', true);
       case 'false':
         return apply(field, '$eq', false);
+      case 'and':
+        return {
+          $and: getValue(value).map(subExpr => mapConditionToActualQL(subExpr)),
+        };
       default:
         throw new Error('Unhandled operator: ' + op);
     }
-  });
+  };
 
+  const filters = conditions.map(mapConditionToActualQL);
   return { filters, errors };
 }
 
@@ -539,15 +604,24 @@ export async function applyActions(
     return null;
   }
 
-  const updated = transactions.flatMap(trans => {
+  const transactionsForRules = await Promise.all(
+    transactions.map(prepareTransactionForRules),
+  );
+
+  const updated = transactionsForRules.flatMap(trans => {
     return ungroupTransaction(execActions(parsedActions, trans));
   });
 
-  return batchUpdateTransactions({ updated });
+  const finalized: TransactionEntity[] = [];
+  for (const trans of updated) {
+    finalized.push(await finalizeTransactionForRules(trans));
+  }
+
+  return batchUpdateTransactions({ updated: finalized });
 }
 
 export function getRulesForPayee(payeeId) {
-  const rules = new Set();
+  const rules = new Set<Rule>();
   iterateIds(getRules(), 'payee', (rule, id) => {
     if (id === payeeId) {
       rules.add(rule);
@@ -758,4 +832,45 @@ export async function updateCategoryRules(transactions) {
       }
     }
   });
+}
+
+export type TransactionForRules = TransactionEntity & {
+  payee_name?: string;
+};
+
+export async function prepareTransactionForRules(
+  trans: TransactionEntity,
+): Promise<TransactionForRules> {
+  const r: TransactionForRules = { ...trans };
+  if (trans.payee) {
+    const payee = await getPayee(trans.payee);
+    if (payee) {
+      r.payee_name = payee.name;
+    }
+  }
+
+  return r;
+}
+
+export async function finalizeTransactionForRules(
+  trans: TransactionEntity | TransactionForRules,
+): Promise<TransactionEntity> {
+  if ('payee_name' in trans) {
+    if (trans.payee === 'new') {
+      if (trans.payee_name) {
+        let payeeId = (await getPayeeByName(trans.payee_name))?.id;
+        payeeId ??= await insertPayee({
+          name: trans.payee_name,
+        });
+
+        trans.payee = payeeId;
+      } else {
+        trans.payee = null;
+      }
+    }
+
+    delete trans.payee_name;
+  }
+
+  return trans;
 }

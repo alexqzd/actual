@@ -8,16 +8,19 @@ export function getStatus(
   nextDate: string,
   completed: boolean,
   hasTrans: boolean,
+  upcomingLength: string,
 ) {
   const today = monthUtils.currentDay();
-
   if (completed) {
     return 'completed';
   } else if (hasTrans) {
     return 'paid';
   } else if (nextDate === today) {
     return 'due';
-  } else if (nextDate > today && nextDate <= monthUtils.addDays(today, 7)) {
+  } else if (
+    nextDate > today &&
+    nextDate <= monthUtils.addDays(today, parseInt(upcomingLength ?? '7'))
+  ) {
     return 'upcoming';
   } else if (nextDate < today) {
     return 'missed';
@@ -269,11 +272,15 @@ export function extractScheduleConds(conditions) {
   };
 }
 
-export function getScheduledAmount(amount) {
-  if (amount && typeof amount !== 'number') {
-    return Math.round((amount.num1 + amount.num2) / 2);
+export function getScheduledAmount(
+  amount: number | { num1: number; num2: number },
+  inverse: boolean = false,
+): number {
+  if (typeof amount === 'number') {
+    return inverse ? -amount : amount;
   }
-  return amount;
+  const avg = (amount.num1 + amount.num2) / 2;
+  return inverse ? -Math.round(avg) : Math.round(avg);
 }
 
 export function describeSchedule(schedule, payee) {

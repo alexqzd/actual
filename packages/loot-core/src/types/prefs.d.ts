@@ -1,8 +1,8 @@
 export type FeatureFlag =
-  | 'dashboards'
-  | 'reportBudget'
   | 'goalTemplatesEnabled'
-  | 'spendingReport';
+  | 'actionTemplating'
+  | 'upcomingLengthAdjustment'
+  | 'contextMenus';
 
 /**
  * Cross-device preferences. These sync across devices when they are changed.
@@ -10,6 +10,7 @@ export type FeatureFlag =
 export type SyncedPrefs = Partial<
   Record<
     | 'budgetType'
+    | 'upcomingScheduledTransactionLength'
     | 'firstDayOfWeekIdx'
     | 'dateFormat'
     | 'numberFormat'
@@ -24,6 +25,8 @@ export type SyncedPrefs = Partial<
     | `csv-mappings-${string}`
     | `csv-delimiter-${string}`
     | `csv-skip-lines-${string}`
+    | `csv-in-out-mode-${string}`
+    | `csv-out-value-${string}`
     | `csv-has-header-${string}`
     | `ofx-fallback-missing-payee-${string}`
     | `flip-amount-${string}-${'csv' | 'qif'}`

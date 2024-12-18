@@ -1,12 +1,8 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useMemo,
-} from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDispatch } from 'react-redux';
 
+import { css } from '@emotion/css';
+import { t } from 'i18next';
 import { v4 as uuid } from 'uuid';
 
 import {
@@ -37,9 +33,10 @@ import {
 } from 'loot-core/src/shared/util';
 
 import { useDateFormat } from '../../hooks/useDateFormat';
+import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { useSelected, SelectedProvider } from '../../hooks/useSelected';
 import { SvgDelete, SvgAdd, SvgSubtract } from '../../icons/v0';
-import { SvgInformationOutline } from '../../icons/v1';
+import { SvgAlignLeft, SvgCode, SvgInformationOutline } from '../../icons/v1';
 import { styles, theme } from '../../style';
 import { Button } from '../common/Button2';
 import { Menu } from '../common/Menu';
@@ -96,10 +93,10 @@ export function FieldSelect({ fields, style, value, onChange }) {
         options={fields}
         value={value}
         onChange={onChange}
-        style={{
+        className={css({
           color: theme.pageTextPositive,
           '&[data-hovered]': { color: theme.pageTextPositive },
-        }}
+        })}
       />
     </View>
   );
@@ -230,7 +227,15 @@ function ConditionEditor({
   onDelete,
   onAdd,
 }) {
-  const { field: originalField, op, value, type, options, error } = condition;
+  const {
+    field: originalField,
+    op,
+    value,
+    type,
+    options,
+    error,
+    inputKey,
+  } = condition;
 
   let field = originalField;
   if (field === 'amount' && options) {
@@ -245,6 +250,7 @@ function ConditionEditor({
   if (type === 'number' && op === 'isbetween') {
     valueEditor = (
       <BetweenAmountInput
+        key={inputKey}
         defaultValue={value}
         onChange={v => onChange('value', v)}
       />
@@ -252,6 +258,7 @@ function ConditionEditor({
   } else {
     valueEditor = (
       <GenericInput
+        key={inputKey}
         field={field}
         type={type}
         value={value}
@@ -297,20 +304,26 @@ function formatAmount(amount) {
 
 function ScheduleDescription({ id }) {
   const dateFormat = useDateFormat() || 'MM/dd/yyyy';
-  const scheduleData = useSchedules({
-    transform: useCallback(q => q.filter({ id }), [id]),
-  });
+  const scheduleQuery = useMemo(
+    () => q('schedules').filter({ id }).select('*'),
+    [id],
+  );
+  const {
+    schedules,
+    statuses: scheduleStatuses,
+    isLoading: isSchedulesLoading,
+  } = useSchedules({ query: scheduleQuery });
 
-  if (scheduleData == null) {
+  if (isSchedulesLoading) {
     return null;
   }
 
-  if (scheduleData.schedules.length === 0) {
+  if (schedules.length === 0) {
     return <View style={{ flex: 1 }}>{id}</View>;
   }
 
-  const [schedule] = scheduleData.schedules;
-  const status = schedule && scheduleData.statuses.get(schedule.id);
+  const [schedule] = schedules;
+  const status = schedule && scheduleStatuses.get(schedule.id);
 
   return (
     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
@@ -322,7 +335,7 @@ function ScheduleDescription({ id }) {
             textOverflow: 'ellipsis',
           }}
         >
-          Payee:{' '}
+          {t('Payee')}:{' '}
           <DisplayId
             type="payees"
             id={schedule._payee}
@@ -331,11 +344,11 @@ function ScheduleDescription({ id }) {
         </Text>
         <Text style={{ margin: '0 5px' }}> — </Text>
         <Text style={{ flexShrink: 0 }}>
-          Amount: {formatAmount(schedule._amount)}
+          {t('Amount')}: {formatAmount(schedule._amount)}
         </Text>
         <Text style={{ margin: '0 5px' }}> — </Text>
         <Text style={{ flexShrink: 0 }}>
-          Next: {monthUtils.format(schedule.next_date, dateFormat)}
+          {t('Next')}: {monthUtils.format(schedule.next_date, dateFormat)}
         </Text>
       </View>
       <StatusBadge status={status} />
@@ -346,6 +359,7 @@ function ScheduleDescription({ id }) {
 const actionFields = [
   'category',
   'payee',
+  'payee_name',
   'notes',
   'cleared',
   'account',
@@ -368,6 +382,16 @@ function ActionEditor({ action, editorStyle, onChange, onDelete, onAdd }) {
     options,
   } = action;
 
+  const templated = options?.template !== undefined;
+
+  // Even if the feature flag is disabled, we still want to be able to turn off templating
+  const actionTemplating = useFeatureFlag('actionTemplating');
+  const isTemplatingEnabled = actionTemplating || templated;
+
+  const fields = (
+    options?.splitIndex ? splitActionFields : actionFields
+  ).filter(([s]) => actionTemplating || !s.includes('_name') || field === s);
+
   return (
     <Editor style={editorStyle} error={error}>
       {op === 'set' ? (
@@ -379,7 +403,7 @@ function ActionEditor({ action, editorStyle, onChange, onDelete, onAdd }) {
           />
 
           <FieldSelect
-            fields={options?.splitIndex ? splitActionFields : actionFields}
+            fields={fields}
             value={field}
             onChange={value => onChange('field', value)}
           />
@@ -388,18 +412,42 @@ function ActionEditor({ action, editorStyle, onChange, onDelete, onAdd }) {
             <GenericInput
               key={inputKey}
               field={field}
-              type={type}
+              type={templated ? 'string' : type}
               op={op}
-              value={value}
+              value={options?.template ?? value}
               onChange={v => onChange('value', v)}
               numberFormatType="currency"
             />
           </View>
+          {/*Due to that these fields have id's as value it is not helpful to have templating here*/}
+          {isTemplatingEnabled &&
+            ['payee', 'category', 'account'].indexOf(field) === -1 && (
+              <Button
+                variant="bare"
+                style={{
+                  padding: 5,
+                }}
+                aria-label={
+                  templated ? t('Disable templating') : t('Enable templating')
+                }
+                onPress={() => onChange('template', !templated)}
+              >
+                {templated ? (
+                  <SvgCode
+                    style={{ width: 12, height: 12, color: 'inherit' }}
+                  />
+                ) : (
+                  <SvgAlignLeft
+                    style={{ width: 12, height: 12, color: 'inherit' }}
+                  />
+                )}
+              </Button>
+            )}
         </>
       ) : op === 'set-split-amount' ? (
         <>
           <View style={{ padding: '5px 10px', lineHeight: '1em' }}>
-            allocate
+            {t('allocate')}
           </View>
 
           <SplitAmountMethodSelect
@@ -517,7 +565,7 @@ function StageButton({ selected, children, style, onSelect }) {
 }
 
 function newInput(item) {
-  return { ...item, inputKey: '' + Math.random() };
+  return { ...item, inputKey: uuid() };
 }
 
 function ConditionsList({
@@ -549,6 +597,7 @@ function ConditionsList({
       field,
       op: 'is',
       value: null,
+      inputKey: uuid(),
     });
     onChangeConditions(copy);
   }
@@ -712,7 +761,7 @@ const conditionFields = [
 
 export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
   const [conditions, setConditions] = useState(
-    defaultRule.conditions.map(parse),
+    defaultRule.conditions.map(parse).map(c => ({ ...c, inputKey: uuid() })),
   );
   const [actionSplits, setActionSplits] = useState(() => {
     const parsedActions = defaultRule.actions.map(parse);
@@ -720,7 +769,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
       (acc, action) => {
         const splitIndex = action.options?.splitIndex ?? 0;
         acc[splitIndex] = acc[splitIndex] ?? { id: uuid(), actions: [] };
-        acc[splitIndex].actions.push(action);
+        acc[splitIndex].actions.push({ ...action, inputKey: uuid() });
         return acc;
       },
       // The pre-split group is always there
@@ -791,6 +840,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
         op: 'set-split-amount',
         options: { method: 'remainder', splitIndex },
         value: null,
+        inputKey: uuid(),
       };
     } else {
       const fieldsArray = splitIndex === 0 ? actionFields : splitActionFields;
@@ -805,6 +855,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
         op: 'set',
         value: null,
         options: { splitIndex },
+        inputKey: uuid(),
       };
     }
 
@@ -821,18 +872,31 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
         id,
         actions: updateValue(actions, action, () => {
           const a = { ...action };
+
           if (field === 'method') {
             a.options = { ...a.options, method: value };
+          } else if (field === 'template') {
+            if (value) {
+              a.options = { ...a.options, template: a.value };
+            } else {
+              a.options = { ...a.options, template: undefined };
+              if (a.type !== 'string') a.value = null;
+            }
           } else {
             a[field] = value;
+            if (a.options?.template !== undefined) {
+              a.options.template = value;
+            }
 
             if (field === 'field') {
               a.type = FIELD_TYPES.get(a.field);
               a.value = null;
+              a.options = { ...a.options, template: undefined };
               return newInput(a);
             } else if (field === 'op') {
               a.value = null;
               a.inputKey = '' + Math.random();
+              a.options = { ...a.options, template: undefined };
               return newInput(a);
             }
           }
@@ -954,7 +1018,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
       {({ state: { close } }) => (
         <>
           <ModalHeader
-            title="Rule"
+            title={t('Rule')}
             rightContent={<ModalCloseButton onPress={close} />}
           />
           <View
@@ -977,26 +1041,26 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                 padding: '0 20px',
               }}
             >
-              <Text style={{ marginRight: 15 }}>Stage of rule:</Text>
+              <Text style={{ marginRight: 15 }}>{t('Stage of rule:')}</Text>
 
               <Stack direction="row" align="center" spacing={1}>
                 <StageButton
                   selected={stage === 'pre'}
                   onSelect={() => onChangeStage('pre')}
                 >
-                  Pre
+                  {t('Pre')}
                 </StageButton>
                 <StageButton
                   selected={stage === null}
                   onSelect={() => onChangeStage(null)}
                 >
-                  Default
+                  {t('Default')}
                 </StageButton>
                 <StageButton
                   selected={stage === 'post'}
                   onSelect={() => onChangeStage('post')}
                 >
-                  Post
+                  {t('Post')}
                 </StageButton>
 
                 <StageInfo />
@@ -1015,7 +1079,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
               <View style={{ flexShrink: 0 }}>
                 <View style={{ marginBottom: 30 }}>
                   <Text style={{ marginBottom: 15 }}>
-                    If
+                    {t('If')}
                     <FieldSelect
                       data-testid="conditions-op"
                       style={{ display: 'inline-flex' }}
@@ -1026,7 +1090,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                       value={conditionsOp}
                       onChange={onChangeConditionsOp}
                     />
-                    of these conditions match:
+                    {t('of these conditions match:')}
                   </Text>
 
                   <ConditionsList
@@ -1039,7 +1103,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                 </View>
 
                 <Text style={{ marginBottom: 15 }}>
-                  Then apply these actions:
+                  {t('Then apply these actions:')}
                 </Text>
                 <View style={{ flex: 1 }}>
                   {actionSplits.length === 0 && (
@@ -1047,7 +1111,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                       style={{ alignSelf: 'flex-start' }}
                       onPress={addInitialAction}
                     >
-                      Add action
+                      {t('Add action')}
                     </Button>
                   )}
                   <Stack spacing={2} data-testid="action-split-list">
@@ -1078,8 +1142,8 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                               }}
                             >
                               {splitIndex === 0
-                                ? 'Apply to all'
-                                : `Split ${splitIndex}`}
+                                ? t('Apply to all')
+                                : `${t('Split')} ${splitIndex}`}
                             </Text>
                             {splitIndex && (
                               <Button
@@ -1089,7 +1153,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                                   width: 20,
                                   height: 20,
                                 }}
-                                aria-label="Delete split"
+                                aria-label={t('Delete split')}
                               >
                                 <SvgDelete
                                   style={{
@@ -1136,7 +1200,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                               addActionToSplitAfterIndex(splitIndex, -1)
                             }
                           >
-                            Add action
+                            {t('Add action')}
                           </Button>
                         )}
                       </View>
@@ -1151,8 +1215,8 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                       data-testid="add-split-transactions"
                     >
                       {actionSplits.length > 1
-                        ? 'Add another split'
-                        : 'Split into multiple transactions'}
+                        ? t('Add another split')
+                        : t('Split into multiple transactions')}
                     </Button>
                   )}
                 </View>
@@ -1169,7 +1233,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                   }}
                 >
                   <Text style={{ color: theme.pageTextLight, marginBottom: 0 }}>
-                    This rule applies to these transactions:
+                    {t('This rule applies to these transactions:')}
                   </Text>
 
                   <View style={{ flex: 1 }} />
@@ -1177,7 +1241,7 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                     isDisabled={selectedInst.items.size === 0}
                     onPress={onApply}
                   >
-                    Apply actions ({selectedInst.items.size})
+                    {t('Apply actions')} ({selectedInst.items.size})
                   </Button>
                 </View>
 
@@ -1198,9 +1262,9 @@ export function EditRuleModal({ defaultRule, onSave: originalOnSave }) {
                   justify="flex-end"
                   style={{ marginTop: 20 }}
                 >
-                  <Button onClick={close}>Cancel</Button>
+                  <Button onClick={close}>{t('Cancel')}</Button>
                   <Button variant="primary" onPress={() => onSave(close)}>
-                    Save
+                    {t('Save')}
                   </Button>
                 </Stack>
               </View>

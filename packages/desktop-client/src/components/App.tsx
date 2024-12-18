@@ -28,7 +28,6 @@ import {
 
 import { useMetadataPref } from '../hooks/useMetadataPref';
 import { installPolyfills } from '../polyfills';
-import { ResponsiveProvider } from '../ResponsiveProvider';
 import { styles, hasHiddenScrollbars, ThemeStyle, useTheme } from '../style';
 import { ExposeNavigate } from '../util/router-tools';
 
@@ -40,7 +39,7 @@ import { FatalError } from './FatalError';
 import { FinancesApp } from './FinancesApp';
 import { ManagementApp } from './manager/ManagementApp';
 import { Modals } from './Modals';
-import { ScrollProvider } from './ScrollProvider';
+import { ResponsiveProvider } from './responsive/ResponsiveProvider';
 import { SidebarProvider } from './sidebar/SidebarProvider';
 import { UpdateNotification } from './UpdateNotification';
 
@@ -51,8 +50,20 @@ function AppInner() {
   const { showBoundary: showErrorBoundary } = useErrorBoundary();
   const dispatch = useDispatch();
 
+  const maybeUpdate = async <T,>(cb?: () => T): Promise<T> => {
+    if (global.Actual.isUpdateReadyForDownload()) {
+      dispatch(
+        setAppState({
+          loadingText: t('Downloading and applying update...'),
+        }),
+      );
+      await global.Actual.applyAppUpdate();
+    }
+    return cb?.();
+  };
+
   async function init() {
-    const socketName = await global.Actual.getServerSocket();
+    const socketName = await maybeUpdate(() => global.Actual.getServerSocket());
 
     dispatch(
       setAppState({
@@ -86,14 +97,16 @@ function AppInner() {
           loadingText: t('Retrieving remote files...'),
         }),
       );
-      send('get-remote-files').then(files => {
-        if (files) {
-          const remoteFile = files.find(f => f.fileId === cloudFileId);
-          if (remoteFile && remoteFile.deleted) {
-            dispatch(closeBudget());
-          }
+
+      const files = await send('get-remote-files');
+      if (files) {
+        const remoteFile = files.find(f => f.fileId === cloudFileId);
+        if (remoteFile && remoteFile.deleted) {
+          dispatch(closeBudget());
         }
-      });
+      }
+
+      await maybeUpdate();
     }
   }
 
@@ -166,36 +179,34 @@ export function App() {
             <SidebarProvider>
               <BudgetMonthCountProvider>
                 <DndProvider backend={HTML5Backend}>
-                  <ScrollProvider>
+                  <View
+                    data-theme={theme}
+                    style={{
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
                     <View
-                      data-theme={theme}
+                      key={
+                        hiddenScrollbars ? 'hidden-scrollbars' : 'scrollbars'
+                      }
                       style={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
+                        flexGrow: 1,
+                        overflow: 'hidden',
+                        ...styles.lightScrollbar,
                       }}
                     >
-                      <View
-                        key={
-                          hiddenScrollbars ? 'hidden-scrollbars' : 'scrollbars'
-                        }
-                        style={{
-                          flexGrow: 1,
-                          overflow: 'hidden',
-                          ...styles.lightScrollbar,
-                        }}
-                      >
-                        <ErrorBoundary FallbackComponent={ErrorFallback}>
-                          {process.env.REACT_APP_REVIEW_ID &&
-                            !Platform.isPlaywright && <DevelopmentTopBar />}
-                          <AppInner />
-                        </ErrorBoundary>
-                        <ThemeStyle />
-                        <Modals />
-                        <UpdateNotification />
-                      </View>
+                      <ErrorBoundary FallbackComponent={ErrorFallback}>
+                        {process.env.REACT_APP_REVIEW_ID &&
+                          !Platform.isPlaywright && <DevelopmentTopBar />}
+                        <AppInner />
+                      </ErrorBoundary>
+                      <ThemeStyle />
+                      <Modals />
+                      <UpdateNotification />
                     </View>
-                  </ScrollProvider>
+                  </View>
                 </DndProvider>
               </BudgetMonthCountProvider>
             </SidebarProvider>

@@ -1,11 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Trans, useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 
 import * as monthUtils from 'loot-core/src/shared/months';
 import { amountToCurrency } from 'loot-core/src/shared/util';
 import { type SpendingWidget } from 'loot-core/src/types/models';
 
-import { useFeatureFlag } from '../../../hooks/useFeatureFlag';
 import { styles } from '../../../style/styles';
 import { theme } from '../../../style/theme';
 import { Block } from '../../common/Block';
@@ -19,8 +18,6 @@ import { ReportCardName } from '../ReportCardName';
 import { calculateSpendingReportTimeRange } from '../reportRanges';
 import { createSpendingSpreadsheet } from '../spreadsheets/spending-spreadsheet';
 import { useReport } from '../useReport';
-
-import { MissingReportCard } from './MissingReportCard';
 
 type SpendingCardProps = {
   widgetId: string;
@@ -37,7 +34,6 @@ export function SpendingCard({
   onMetaChange,
   onRemove,
 }: SpendingCardProps) {
-  const isDashboardsFeatureEnabled = useFeatureFlag('dashboards');
   const { t } = useTranslation();
 
   const [compare, compareTo] = calculateSpendingReportTimeRange(meta ?? {});
@@ -70,25 +66,10 @@ export function SpendingCard({
     data.intervalData[todayDay][selection] -
       data.intervalData[todayDay].compare;
 
-  const spendingReportFeatureFlag = useFeatureFlag('spendingReport');
-
-  if (!spendingReportFeatureFlag) {
-    return (
-      <MissingReportCard isEditing={isEditing} onRemove={onRemove}>
-        <Trans>
-          The experimental spending report feature has not been enabled.
-        </Trans>
-      </MissingReportCard>
-    );
-  }
   return (
     <ReportCard
       isEditing={isEditing}
-      to={
-        isDashboardsFeatureEnabled
-          ? `/reports/spending/${widgetId}`
-          : '/reports/spending'
-      }
+      to={`/reports/spending/${widgetId}`}
       menuItems={[
         {
           name: 'rename',
