@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { type CSSProperties } from 'react';
 
-import { css } from 'glamor';
+import { css } from '@emotion/css';
 
 import { envelopeBudget } from 'loot-core/src/client/queries';
 
-import { theme, styles, type CSSProperties } from '../../../../style';
+import { theme, styles } from '../../../../style';
 import { Block } from '../../../common/Block';
 import { Tooltip } from '../../../common/Tooltip';
 import { View } from '../../../common/View';
@@ -26,6 +26,8 @@ import { Schedule as RSchedule } from 'loot-core/src/server/util/rschedule';
 import * as d from 'date-fns';
 import { dayFromDate } from 'loot-core/src/shared/months';
 import { captureBreadcrumb } from 'loot-core/src/platform/exceptions';
+import { q } from 'loot-core/shared/query';
+import { useEnvelopeSheetName, useEnvelopeSheetValue } from '../EnvelopeBudgetComponents';
 
 function getDateWithSkippedWeekend(
   date: Date,
@@ -100,17 +102,19 @@ type ForecastedToBudgetAmountProps = {
 
 export function calculateForecastedToBudgetAmount({ month }) {
 
-  const sheetName = useSheetName(envelopeBudget.toBudget);
-  const sheetValue = useSheetValue({
-    name: envelopeBudget.toBudget,
-    value: 0,
-  });
-  const format = useFormat();
-  const availableValue = parseInt(sheetValue);
+ const sheetName = useEnvelopeSheetName(envelopeBudget.toBudget);
+   const sheetValue = useEnvelopeSheetValue({
+     name: envelopeBudget.toBudget,
+     value: 0,
+   });
+   const format = useFormat();
+   const availableValue = sheetValue;
   const num = isNaN(availableValue) ? 0 : availableValue;
   const isNegative = num < 0;
 
-  const scheduleData = useSchedules()
+  const scheduleData = useSchedules({
+      query: useMemo(() => q('schedules').select('*'), []),
+    });
 
   const schedules = useMemo(
     ()  => {
@@ -163,6 +167,7 @@ export function calculateForecastedToBudgetAmount({ month }) {
           const amount = s._amount;
           const frequency = s._date.frequency;
           schedulesThisMonth.push({ id, name: s.name, amount: amount, frequency, timesThisMonth });
+          console.log(s.name, "occurrences", occurrences, "timesThisMonth", timesThisMonth);
         }
       }
     });
@@ -183,17 +188,18 @@ export function ForecastedToBudgetAmount({
   onClick,
   isTotalsListTooltipDisabled = false,
 }: ForecastedToBudgetAmountProps) {
-  const sheetName = useSheetName(envelopeBudget.toBudget);
-  const sheetValue = useSheetValue({
-    name: envelopeBudget.toBudget,
-    value: 0,
-  });
-  const format = useFormat();
-  const availableValue = parseInt(sheetValue);
+  const sheetName = useEnvelopeSheetName(envelopeBudget.toBudget);
+    const sheetValue = useEnvelopeSheetValue({
+      name: envelopeBudget.toBudget,
+      value: 0,
+    });
+    const format = useFormat();
+    const availableValue = sheetValue;
   const num = isNaN(availableValue) ? 0 : availableValue;
   const isNegative = num < 0;
 
   const totalIncomeExpected = calculateForecastedToBudgetAmount({ month });
+  console.log("month", month, "totalIncomeExpected", totalIncomeExpected);
 
 
   return (
@@ -203,7 +209,7 @@ export function ForecastedToBudgetAmount({
         <Block>Expected to budget:</Block>
         <PrivacyFilter>
             <Block
-              className={`${css([
+              className={css([
                 styles.veryLargeText,
                 {
                   fontWeight: 400,
@@ -213,7 +219,7 @@ export function ForecastedToBudgetAmount({
                   borderBottom: '1px solid transparent',
                 },
                 amountStyle,
-              ])}`}
+              ])}
             >
               {format(totalIncomeExpected, 'financial')}
             </Block>
