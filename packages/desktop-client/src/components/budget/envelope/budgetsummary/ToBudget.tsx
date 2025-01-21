@@ -65,28 +65,40 @@ export function ToBudget({
     asContextMenu,
   } = useContextMenu();
 
+  const showToBudget = availableValue >= 0 || !isCollapsed;
+  const showForecastedToBudget = availableValue < 0;
+
   return (
     <>
       <View ref={triggerRef}>
-        <ToBudgetAmount
-          onClick={() => {
-            resetPosition();
-            setMenuOpen(true);
-          }}
-          prevMonthName={prevMonthName}
-          style={style}
-          amountStyle={amountStyle}
-          isTotalsListTooltipDisabled={!isCollapsed || asContextMenu}
-          onContextMenu={handleContextMenu}
-        />
-        <ForecastedToBudgetAmount
-          month={month}
-          prevMonthName={prevMonthName}
-          style={style}
-          amountStyle={amountStyle}
-          onClick={void 0}
-          isTotalsListTooltipDisabled={true}
-        />
+
+        {showToBudget && (
+          <ToBudgetAmount
+            onClick={() => setMenuOpen('actions')}
+            prevMonthName={prevMonthName}
+            style={style}
+            amountStyle={amountStyle}
+            isTotalsListTooltipDisabled={!isCollapsed || menuOpen}
+            onContextMenu={e => {
+              if (!contextMenusEnabled) return;
+              e.preventDefault();
+              setMenuOpen('actions');
+            }}
+          />
+        )}
+
+        {showToBudget && showForecastedToBudget && <View style={{ height: 8 }} />}
+
+        {showForecastedToBudget && (
+          <ForecastedToBudgetAmount
+            month={month}
+            prevMonthName={prevMonthName}
+            style={style}
+            amountStyle={amountStyle}
+            onClick={() => setMenuOpen('actions')}
+            isTotalsListTooltipDisabled={!isCollapsed || menuOpen}
+          />
+        )}
       </View>
 
       <Popover

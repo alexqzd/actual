@@ -188,15 +188,7 @@ export function ForecastedToBudgetAmount({
   onClick,
   isTotalsListTooltipDisabled = false,
 }: ForecastedToBudgetAmountProps) {
-  const sheetName = useEnvelopeSheetName(envelopeBudget.toBudget);
-    const sheetValue = useEnvelopeSheetValue({
-      name: envelopeBudget.toBudget,
-      value: 0,
-    });
     const format = useFormat();
-    const availableValue = sheetValue;
-  const num = isNaN(availableValue) ? 0 : availableValue;
-  const isNegative = num < 0;
 
   const totalIncomeExpected = calculateForecastedToBudgetAmount({ month });
   console.log("month", month, "totalIncomeExpected", totalIncomeExpected);
@@ -204,8 +196,7 @@ export function ForecastedToBudgetAmount({
 
   return (
     <View>
-      {isNegative && (
-        <View style={{ alignItems: 'center', marginTop: 15, ...style }}>
+        <View style={{ alignItems: 'center', marginTop: 0, ...style }}>
         <Block>Expected to budget:</Block>
         <PrivacyFilter>
             <Block
@@ -225,7 +216,6 @@ export function ForecastedToBudgetAmount({
             </Block>
           </PrivacyFilter>
         </View>
-      )}
     </View>
   );
 }

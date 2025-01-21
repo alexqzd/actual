@@ -110,6 +110,8 @@ export function EnvelopeBudgetSummaryModal({
     );
   };
 
+  const showForecastedToBudgetAmount = sheetValue < 0;
+
   return (
     <Modal name="envelope-budget-summary">
       {({ state: { close } }) => (
@@ -137,14 +139,17 @@ export function EnvelopeBudgetSummaryModal({
               onClick={() => onClick({ close })}
               isTotalsListTooltipDisabled={true}
             />
+
+            {showForecastedToBudgetAmount && (
             <ForecastedToBudgetAmount
-          month={month}
-          prevMonthName={prevMonthName}
-          style={styles.mediumText}
-          amountStyle={styles.underlinedText}
-          onClick={void 0}
-          isTotalsListTooltipDisabled={true}
-        />
+              month={month}
+              prevMonthName={prevMonthName}
+              style={{...styles.mediumText, marginTop: 15, marginBottom: 15}}
+              amountStyle={styles.underlinedText}
+              onClick={void 0}
+              isTotalsListTooltipDisabled={true}
+            />
+            )}
           </NamespaceContext.Provider>
         </>
       )}
