@@ -17,6 +17,7 @@ import {
   RuleEntity,
   PayeeEntity,
 } from './models';
+import { OpenIdConfig } from './models/openid';
 import { GlobalPrefs, MetadataPrefs } from './prefs';
 import { Query } from './query';
 import { EmptyObject } from './util';
@@ -178,7 +179,7 @@ export interface ServerHandlers {
 
   'account-move': (arg: { id; targetId }) => Promise<unknown>;
 
-  'secret-set': (arg: { name: string; value: string }) => Promise<null>;
+  'secret-set': (arg: { name: string; value: string | null }) => Promise<null>;
   'secret-check': (arg: string) => Promise<string | { error?: string }>;
 
   'gocardless-poll-web-token': (arg: {
@@ -269,26 +270,63 @@ export interface ServerHandlers {
 
   'get-did-bootstrap': () => Promise<boolean>;
 
-  'subscribe-needs-bootstrap': (args: {
-    url;
-  }) => Promise<
-    { error: string } | { bootstrapped: unknown; hasServer: boolean }
+  'subscribe-needs-bootstrap': (args: { url }) => Promise<
+    | { error: string }
+    | {
+        bootstrapped: boolean;
+        hasServer: false;
+      }
+    | {
+        bootstrapped: boolean;
+        hasServer: true;
+        availableLoginMethods: {
+          method: string;
+          displayName: string;
+          active: boolean;
+        }[];
+        multiuser: boolean;
+      }
   >;
 
-  'subscribe-bootstrap': (arg: { password }) => Promise<{ error?: string }>;
+  'subscribe-get-login-methods': () => Promise<{
+    methods?: { method: string; displayName: string; active: boolean }[];
+    error?: string;
+  }>;
 
-  'subscribe-get-user': () => Promise<{ offline: boolean } | null>;
+  'subscribe-bootstrap': (arg: {
+    password?: string;
+    openId?: OpenIdConfig;
+  }) => Promise<{ error?: string }>;
+
+  'subscribe-get-user': () => Promise<{
+    offline: boolean;
+    userName?: string;
+    userId?: string;
+    displayName?: string;
+    permission?: string;
+    loginMethod?: string;
+    tokenExpired?: boolean;
+  } | null>;
 
   'subscribe-change-password': (arg: {
     password;
   }) => Promise<{ error?: string }>;
 
-  'subscribe-sign-in': (arg: {
-    password;
-    loginMethod?: string;
-  }) => Promise<{ error?: string }>;
+  'subscribe-sign-in': (
+    arg:
+      | {
+          password;
+          loginMethod?: string;
+        }
+      | {
+          return_url;
+          loginMethod?: 'openid';
+        },
+  ) => Promise<{ error?: string }>;
 
   'subscribe-sign-out': () => Promise<'ok'>;
+
+  'subscribe-set-token': (arg: { token: string }) => Promise<void>;
 
   'get-server-version': () => Promise<{ error?: string } | { version: string }>;
 
@@ -304,9 +342,17 @@ export interface ServerHandlers {
     | { messages: Message[] }
   >;
 
+  'validate-budget-name': (arg: {
+    name: string;
+  }) => Promise<{ valid: boolean; message?: string }>;
+
+  'unique-budget-name': (arg: { name: string }) => Promise<string>;
+
   'get-budgets': () => Promise<Budget[]>;
 
   'get-remote-files': () => Promise<RemoteFile[]>;
+
+  'get-user-file-info': (fileId: string) => Promise<RemoteFile | null>;
 
   'reset-budget-cache': () => Promise<unknown>;
 
@@ -327,7 +373,24 @@ export interface ServerHandlers {
   'delete-budget': (arg: {
     id?: string;
     cloudFileId?: string;
-  }) => Promise<'ok'>;
+  }) => Promise<'ok' | 'fail'>;
+
+  /**
+   * Duplicates a budget file.
+   * @param {Object} arg - The arguments for duplicating a budget.
+   * @param {string} [arg.id] - The ID of the local budget to duplicate.
+   * @param {string} [arg.cloudId] - The ID of the cloud-synced budget to duplicate.
+   * @param {string} arg.newName - The name for the duplicated budget.
+   * @param {boolean} [arg.cloudSync] - Whether to sync the duplicated budget to the cloud.
+   * @returns {Promise<string>} The ID of the newly created budget.
+   */
+  'duplicate-budget': (arg: {
+    id?: string;
+    cloudId?: string;
+    newName: string;
+    cloudSync?: boolean;
+    open: 'none' | 'original' | 'copy';
+  }) => Promise<string>;
 
   'create-budget': (arg: {
     budgetName?;
@@ -357,4 +420,18 @@ export interface ServerHandlers {
   'get-last-opened-backup': () => Promise<string | null>;
 
   'app-focused': () => Promise<void>;
+
+  'enable-openid': (arg: {
+    openId?: OpenIdConfig;
+  }) => Promise<{ error?: string }>;
+
+  'enable-password': (arg: { password: string }) => Promise<{ error?: string }>;
+
+  'get-openid-config': () => Promise<
+    | {
+        openId: OpenIdConfig;
+      }
+    | { error: string }
+    | null
+  >;
 }

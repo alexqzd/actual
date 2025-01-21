@@ -1,12 +1,13 @@
 import React, { type ReactNode, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useDispatch } from 'react-redux';
 
 import { css } from '@emotion/css';
-import { t } from 'i18next';
 
+import { closeBudget, loadPrefs } from 'loot-core/client/actions';
 import { isElectron } from 'loot-core/shared/environment';
 import { listen } from 'loot-core/src/platform/client/fetch';
 
-import { useActions } from '../../hooks/useActions';
 import { useGlobalPref } from '../../hooks/useGlobalPref';
 import { useIsOutdated, useLatestVersion } from '../../hooks/useLatestVersion';
 import { useMetadataPref } from '../../hooks/useMetadataPref';
@@ -23,6 +24,7 @@ import { Page } from '../Page';
 import { useResponsive } from '../responsive/ResponsiveProvider';
 import { useServerVersion } from '../ServerContext';
 
+import { AuthSettings } from './AuthSettings';
 import { Backups } from './Backups';
 import { BudgetTypeSettings } from './BudgetTypeSettings';
 import { EncryptionSettings } from './Encryption';
@@ -35,6 +37,7 @@ import { ThemeSettings } from './Themes';
 import { AdvancedToggle, Setting } from './UI';
 
 function About() {
+  const { t } = useTranslation();
   const version = useServerVersion();
   const latestVersion = useLatestVersion();
   const isOutdated = useIsOutdated();
@@ -95,6 +98,7 @@ function IDName({ children }: { children: ReactNode }) {
 }
 
 function AdvancedAbout() {
+  const { t } = useTranslation();
   const [budgetId] = useMetadataPref('id');
   const [groupId] = useMetadataPref('groupId');
 
@@ -124,19 +128,23 @@ function AdvancedAbout() {
 }
 
 export function Settings() {
+  const { t } = useTranslation();
   const [floatingSidebar] = useGlobalPref('floatingSidebar');
   const [budgetName] = useMetadataPref('budgetName');
+  const dispatch = useDispatch();
 
-  const { loadPrefs, closeBudget } = useActions();
+  const onCloseBudget = () => {
+    dispatch(closeBudget());
+  };
 
   useEffect(() => {
     const unlisten = listen('prefs-updated', () => {
-      loadPrefs();
+      dispatch(loadPrefs());
     });
 
-    loadPrefs();
+    dispatch(loadPrefs());
     return () => unlisten();
-  }, [loadPrefs]);
+  }, [dispatch]);
 
   const { isNarrowWidth } = useResponsive();
 
@@ -169,12 +177,13 @@ export function Settings() {
                 style={{ color: theme.buttonNormalDisabledText }}
               />
             </FormField>
-            <Button onPress={closeBudget}>{t('Close Budget')}</Button>
+            <Button onPress={onCloseBudget}>{t('Close Budget')}</Button>
           </View>
         )}
         <About />
         <ThemeSettings />
         <FormatSettings />
+        <AuthSettings />
         <EncryptionSettings />
         <BudgetTypeSettings />
         {isElectron() && <Backups />}

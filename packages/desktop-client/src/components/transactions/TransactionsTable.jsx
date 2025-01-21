@@ -47,7 +47,7 @@ import {
   titleFirst,
 } from 'loot-core/src/shared/util';
 
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
+import { useContextMenu } from '../../hooks/useContextMenu';
 import { useMergedRefs } from '../../hooks/useMergedRefs';
 import { usePrevious } from '../../hooks/usePrevious';
 import { useProperFocus } from '../../hooks/useProperFocus';
@@ -175,6 +175,7 @@ const TransactionHeader = memo(
     onSort,
     ascDesc,
     field,
+    showSelection,
   }) => {
     const dispatchSelected = useSelectedDispatch();
     const { t } = useTranslation();
@@ -202,19 +203,32 @@ const TransactionHeader = memo(
           borderColor: theme.tableBorder,
         }}
       >
-        <SelectCell
-          exposed={true}
-          focused={false}
-          selected={hasSelected}
-          width={20}
-          style={{
-            borderTopWidth: 0,
-            borderBottomWidth: 0,
-          }}
-          onSelect={e =>
-            dispatchSelected({ type: 'select-all', isRangeSelect: e.shiftKey })
-          }
-        />
+        {showSelection && (
+          <SelectCell
+            exposed={true}
+            focused={false}
+            selected={hasSelected}
+            width={20}
+            style={{
+              borderTopWidth: 0,
+              borderBottomWidth: 0,
+            }}
+            onSelect={e =>
+              dispatchSelected({
+                type: 'select-all',
+                isRangeSelect: e.shiftKey,
+              })
+            }
+          />
+        )}
+        {!showSelection && (
+          <Field
+            style={{
+              width: '20px',
+              border: 0,
+            }}
+          />
+        )}
         <HeaderCell
           value={t('Date')}
           width={110}
@@ -344,14 +358,7 @@ function getPayeePretty(transaction, payee, transferAcct, numHiddenPayees = 0) {
           alignItems: 'center',
         }}
       >
-        <div
-          style={{
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {formatPayeeName(transferAcct.name)}
-        </div>
+        {formatPayeeName(transferAcct.name)}
       </View>
     );
   } else if (payee) {
@@ -699,25 +706,34 @@ function PayeeCell({
               onNavigateToTransferAccount={onNavigateToTransferAccount}
               onNavigateToSchedule={onNavigateToSchedule}
             />
-            {importedPayee ? (
-              <Tooltip
-                content={
-                  <View style={{ padding: 10 }}>
-                    <Text style={{ fontWeight: 'bold' }}>Imported Payee</Text>
-                    <Text style={{ fontWeight: 'normal' }}>
-                      {importedPayee}
-                    </Text>
-                  </View>
-                }
-                style={{ ...styles.tooltip, borderRadius: '0px 5px 5px 0px' }}
-                placement="bottom"
-                triggerProps={{ delay: 750 }}
-              >
-                {payeeName}
-              </Tooltip>
-            ) : (
-              payeeName
-            )}
+            <div
+              style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              {importedPayee ? (
+                <Tooltip
+                  content={
+                    <View style={{ padding: 10 }}>
+                      <Text style={{ fontWeight: 'bold' }}>Imported Payee</Text>
+                      <Text style={{ fontWeight: 'normal' }}>
+                        {importedPayee}
+                      </Text>
+                    </View>
+                  }
+                  style={{ ...styles.tooltip, borderRadius: '0px 5px 5px 0px' }}
+                  placement="bottom"
+                  triggerProps={{ delay: 750 }}
+                >
+                  {payeeName}
+                </Tooltip>
+              ) : (
+                payeeName
+              )}
+            </div>
           </>
         );
       }}
@@ -790,6 +806,7 @@ function PayeeIcons({
       {schedule && (
         <Button
           variant="bare"
+          data-testid="schedule-icon"
           aria-label="See schedule details"
           style={payeeIconButtonStyle}
           onPress={() => {
@@ -806,6 +823,7 @@ function PayeeIcons({
       {transferAccount && (
         <Button
           variant="bare"
+          data-testid="transfer-icon"
           aria-label="See transfer account"
           style={payeeIconButtonStyle}
           onPress={() => {
@@ -866,6 +884,8 @@ const Transaction = memo(function Transaction({
   onNotesTagClick,
   splitError,
   listContainerRef,
+  showSelection,
+  allowSplitTransaction,
 }) {
   const dispatch = useDispatch();
   const dispatchSelected = useSelectedDispatch();
@@ -1048,10 +1068,8 @@ const Transaction = memo(function Transaction({
     }, 1);
   }, [splitError, allTransactions]);
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [crossOffset, setCrossOffset] = useState(0);
-  const [offset, setOffset] = useState(0);
-  const contextMenusEnabled = useFeatureFlag('contextMenus');
+  const { setMenuOpen, menuOpen, handleContextMenu, position } =
+    useContextMenu();
 
   return (
     <Row
@@ -1081,23 +1099,14 @@ const Transaction = memo(function Transaction({
         }),
         ...(_unmatched && { opacity: 0.5 }),
       }}
-      onContextMenu={e => {
-        if (!contextMenusEnabled) return;
-        if (transaction.id === 'temp') return;
-        e.preventDefault();
-        const rect = e.currentTarget.getBoundingClientRect();
-        setCrossOffset(e.clientX - rect.left);
-        setOffset(e.clientY - rect.bottom);
-        setMenuOpen(true);
-      }}
+      onContextMenu={handleContextMenu}
     >
       <Popover
         triggerRef={triggerRef}
         placement="bottom start"
         isOpen={menuOpen}
         onOpenChange={() => setMenuOpen(false)}
-        crossOffset={crossOffset}
-        offset={offset}
+        {...position}
         style={{ width: 200, margin: 1 }}
         isNonModal
       >
@@ -1168,7 +1177,7 @@ const Transaction = memo(function Transaction({
         ) : (
           <Cell width={20} />
         )
-      ) : isPreview && isChild ? (
+      ) : (isPreview && isChild) || !showSelection ? (
         <Cell width={20} />
       ) : (
         <SelectCell
@@ -1361,6 +1370,9 @@ const Transaction = memo(function Transaction({
                 margin: '0 5px',
                 padding: '3px 7px',
                 borderRadius: 4,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: 'inline-block',
               }}
             >
               {titleFirst(categoryId)}
@@ -1417,7 +1429,7 @@ const Transaction = memo(function Transaction({
         </Cell>
       ) : isBudgetTransfer || isOffBudget ? (
         <InputCell
-          /* Category field for transfer and off-budget transactions
+          /* Category field for transfer and off budget transactions
      (NOT preview, it is covered first) */
           name="category"
           width="flex"
@@ -1428,7 +1440,7 @@ const Transaction = memo(function Transaction({
             isParent
               ? 'Split'
               : isOffBudget
-                ? 'Off Budget'
+                ? 'Off budget'
                 : isBudgetTransfer
                   ? 'Transfer'
                   : ''
@@ -1499,7 +1511,7 @@ const Transaction = memo(function Transaction({
                 value={categoryId}
                 focused={true}
                 clearOnBlur={false}
-                showSplitOption={!isChild && !isParent}
+                showSplitOption={!isChild && !isParent && allowSplitTransaction}
                 shouldSaveFromKey={shouldSaveFromKey}
                 inputProps={{ onBlur, onKeyDown, style: inputStyle }}
                 onUpdate={onUpdate}
@@ -1771,6 +1783,8 @@ function NewTransaction({
           onNavigateToSchedule={onNavigateToSchedule}
           onNotesTagClick={onNotesTagClick}
           balance={balance}
+          showSelection={true}
+          allowSplitTransaction={true}
         />
       ))}
       <View
@@ -1891,6 +1905,8 @@ function TransactionTableInner({
       isNew,
       isMatched,
       isExpanded,
+      showSelection,
+      allowSplitTransaction,
     } = props;
 
     const trans = item;
@@ -1973,6 +1989,8 @@ function TransactionTableInner({
           )
         }
         listContainerRef={listContainerRef}
+        showSelection={showSelection}
+        allowSplitTransaction={allowSplitTransaction}
       />
     );
   };
@@ -1997,6 +2015,7 @@ function TransactionTableInner({
           onSort={props.onSort}
           ascDesc={props.ascDesc}
           field={props.sortField}
+          showSelection={props.showSelection}
         />
 
         {props.isAdding && (
@@ -2102,9 +2121,9 @@ export const TransactionTable = forwardRef((props, ref) => {
       result = props.transactions.filter((t, idx) => {
         if (t.parent_id) {
           if (idx >= index) {
-            return splitsExpanded.expanded(t.parent_id);
+            return splitsExpanded.isExpanded(t.parent_id);
           } else if (prevSplitsExpanded.current) {
-            return prevSplitsExpanded.current.expanded(t.parent_id);
+            return prevSplitsExpanded.current.isExpanded(t.parent_id);
           }
         }
         return true;
@@ -2121,7 +2140,7 @@ export const TransactionTable = forwardRef((props, ref) => {
 
       result = props.transactions.filter(t => {
         if (t.parent_id) {
-          return splitsExpanded.expanded(t.parent_id);
+          return splitsExpanded.isExpanded(t.parent_id);
         }
         return true;
       });
@@ -2592,7 +2611,7 @@ export const TransactionTable = forwardRef((props, ref) => {
       transactionsByParent={transactionsByParent}
       transferAccountsByTransaction={transferAccountsByTransaction}
       selectedItems={selectedItems}
-      isExpanded={splitsExpanded.expanded}
+      isExpanded={splitsExpanded.isExpanded}
       onSave={onSave}
       onDelete={onDelete}
       onDuplicate={onDuplicate}
@@ -2612,6 +2631,8 @@ export const TransactionTable = forwardRef((props, ref) => {
       newTransactions={newTransactions}
       tableNavigator={tableNavigator}
       newNavigator={newNavigator}
+      showSelection={props.showSelection}
+      allowSplitTransaction={props.allowSplitTransaction}
     />
   );
 });

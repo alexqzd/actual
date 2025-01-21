@@ -1,7 +1,8 @@
 import React, { type CSSProperties, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
 
-import { t } from 'i18next';
+import { css } from '@emotion/css';
 
 import { replaceModal, syncAndDownload } from 'loot-core/src/client/actions';
 import * as queries from 'loot-core/src/client/queries';
@@ -11,7 +12,7 @@ import { useAccounts } from '../../../hooks/useAccounts';
 import { useFailedAccounts } from '../../../hooks/useFailedAccounts';
 import { useNavigate } from '../../../hooks/useNavigate';
 import { useSyncedPref } from '../../../hooks/useSyncedPref';
-import { SvgAdd } from '../../../icons/v1';
+import { SvgAdd, SvgCheveronRight } from '../../../icons/v1';
 import { theme, styles } from '../../../style';
 import { makeAmountFullStyle } from '../../budget/util';
 import { Button } from '../../common/Button2';
@@ -25,48 +26,75 @@ import { MOBILE_NAV_HEIGHT } from '../MobileNavTabs';
 import { PullToRefresh } from '../PullToRefresh';
 
 type AccountHeaderProps<SheetFieldName extends SheetFields<'account'>> = {
+  id: string;
   name: string;
   amount: Binding<'account', SheetFieldName>;
   style?: CSSProperties;
 };
 
 function AccountHeader<SheetFieldName extends SheetFields<'account'>>({
+  id,
   name,
   amount,
   style = {},
 }: AccountHeaderProps<SheetFieldName>) {
+  const navigate = useNavigate();
+
   return (
-    <View
+    <Button
+      variant="bare"
+      aria-label={`View ${name} transactions`}
+      onPress={() => navigate(`/accounts/${id}`)}
       style={{
         flex: 1,
         flexDirection: 'row',
-        marginTop: 10,
-        marginRight: 10,
+        paddingTop: 15,
+        paddingBottom: 15,
+        paddingLeft: 0,
+        paddingRight: 0,
         color: theme.pageTextLight,
         width: '100%',
         ...style,
       }}
+      // to match the feel of the other account buttons
+      className={css([
+        {
+          '&[data-pressed], &[data-hovered]': {
+            backgroundColor: 'transparent',
+            transform: 'translateY(1px)',
+          },
+        },
+      ])}
     >
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, alignItems: 'center', flexDirection: 'row' }}>
         <Text
           style={{
             ...styles.text,
-            fontSize: 14,
+            fontSize: 17,
           }}
           data-testid="name"
         >
           {name}
         </Text>
+        <SvgCheveronRight
+          style={{
+            flexShrink: 0,
+            color: theme.mobileHeaderTextSubdued,
+            marginLeft: 5,
+          }}
+          width={styles.text.fontSize}
+          height={styles.text.fontSize}
+        />
       </View>
       <CellValue binding={amount} type="financial">
         {props => (
           <CellValueText<'account', SheetFieldName>
             {...props}
-            style={{ ...styles.text, fontSize: 14 }}
+            style={{ ...styles.text }}
           />
         )}
       </CellValue>
-    </View>
+    </Button>
   );
 }
 
@@ -163,6 +191,7 @@ function AccountCard({
 }
 
 function EmptyMessage() {
+  const { t } = useTranslation();
   return (
     <View style={{ flex: 1, padding: 30 }}>
       <Text style={styles.text}>
@@ -178,7 +207,7 @@ type AccountListProps = {
   accounts: AccountEntity[];
   updatedAccounts: Array<AccountEntity['id']>;
   getBalanceQuery: (account: AccountEntity) => Binding<'account', 'balance'>;
-  getOnBudgetBalance: () => Binding<'account', 'budgeted-accounts-balance'>;
+  getOnBudgetBalance: () => Binding<'account', 'onbudget-accounts-balance'>;
   getOffBudgetBalance: () => Binding<'account', 'offbudget-accounts-balance'>;
   onAddAccount: () => void;
   onSelectAccount: (id: string) => void;
@@ -195,10 +224,11 @@ function AccountList({
   onSelectAccount,
   onSync,
 }: AccountListProps) {
+  const { t } = useTranslation();
   const failedAccounts = useFailedAccounts();
   const syncingAccountIds = useSelector(state => state.account.accountsSyncing);
-  const budgetedAccounts = accounts.filter(account => account.offbudget === 0);
-  const offbudgetAccounts = accounts.filter(account => account.offbudget === 1);
+  const onBudgetAccounts = accounts.filter(account => account.offbudget === 0);
+  const offBudgetAccounts = accounts.filter(account => account.offbudget === 1);
 
   return (
     <Page
@@ -225,10 +255,14 @@ function AccountList({
       {accounts.length === 0 && <EmptyMessage />}
       <PullToRefresh onRefresh={onSync}>
         <View aria-label="Account list" style={{ margin: 10 }}>
-          {budgetedAccounts.length > 0 && (
-            <AccountHeader name="For Budget" amount={getOnBudgetBalance()} />
+          {onBudgetAccounts.length > 0 && (
+            <AccountHeader
+              id="onbudget"
+              name="On budget"
+              amount={getOnBudgetBalance()}
+            />
           )}
-          {budgetedAccounts.map(acct => (
+          {onBudgetAccounts.map(acct => (
             <AccountCard
               account={acct}
               key={acct.id}
@@ -241,14 +275,15 @@ function AccountList({
             />
           ))}
 
-          {offbudgetAccounts.length > 0 && (
+          {offBudgetAccounts.length > 0 && (
             <AccountHeader
-              name="Off Budget"
+              id="offbudget"
+              name="Off budget"
               amount={getOffBudgetBalance()}
               style={{ marginTop: 30 }}
             />
           )}
-          {offbudgetAccounts.map(acct => (
+          {offBudgetAccounts.map(acct => (
             <AccountCard
               account={acct}
               key={acct.id}
@@ -300,8 +335,8 @@ export function Accounts() {
         accounts={accounts.filter(account => !account.closed)}
         updatedAccounts={updatedAccounts}
         getBalanceQuery={queries.accountBalance}
-        getOnBudgetBalance={queries.budgetedAccountBalance}
-        getOffBudgetBalance={queries.offbudgetAccountBalance}
+        getOnBudgetBalance={queries.onBudgetAccountBalance}
+        getOffBudgetBalance={queries.offBudgetAccountBalance}
         onAddAccount={onAddAccount}
         onSelectAccount={onSelectAccount}
         onSync={onSync}

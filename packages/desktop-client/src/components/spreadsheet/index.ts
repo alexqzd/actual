@@ -10,8 +10,17 @@ export type Spreadsheets = {
     balance: number;
     [key: `balance-${string}-cleared`]: number | null;
     'accounts-balance': number;
-    'budgeted-accounts-balance': number;
+    'onbudget-accounts-balance': number;
     'offbudget-accounts-balance': number;
+    balanceCleared: number;
+    balanceUncleared: number;
+  };
+  category: {
+    // Common fields
+    'uncategorized-amount': number;
+    'uncategorized-balance': number;
+
+    balance: number;
     balanceCleared: number;
     balanceUncleared: number;
   };
