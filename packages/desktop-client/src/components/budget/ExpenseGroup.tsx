@@ -1,8 +1,12 @@
 // @ts-strict-ignore
 import React, { type ComponentProps } from 'react';
 
-import { theme } from '../../style';
-import { View } from '../common/View';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
+import { RenderMonths } from './RenderMonths';
+import { SidebarGroup } from './SidebarGroup';
+
 import {
   useDraggable,
   useDroppable,
@@ -10,11 +14,9 @@ import {
   type OnDragChangeCallback,
   type OnDropCallback,
   type DragState,
-} from '../sort';
-import { Row, ROW_HEIGHT } from '../table';
-
-import { RenderMonths } from './RenderMonths';
-import { SidebarGroup } from './SidebarGroup';
+} from '@desktop-client/components/sort';
+import { Row, ROW_HEIGHT } from '@desktop-client/components/table';
+import { useDragRef } from '@desktop-client/hooks/useDragRef';
 
 type ExpenseGroupProps = {
   group: ComponentProps<typeof SidebarGroup>['group'];
@@ -61,6 +63,7 @@ export function ExpenseGroup({
     item: group,
     canDrag: editingCell === null,
   });
+  const handleDragRef = useDragRef(dragRef);
 
   const { dropRef, dropPos } = useDroppable({
     types: 'group',
@@ -116,7 +119,7 @@ export function ExpenseGroup({
         }}
       >
         <SidebarGroup
-          innerRef={dragRef}
+          innerRef={handleDragRef}
           group={group}
           editing={
             editingCell &&

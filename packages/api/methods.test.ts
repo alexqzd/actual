@@ -6,10 +6,9 @@ import * as api from './index';
 
 const budgetName = 'test-budget';
 
-beforeEach(async () => {
-  // we need real datetime if we are going to mix new timestamps with our mock data
-  global.restoreDateNow();
+global.IS_TESTING = true;
 
+beforeEach(async () => {
   const budgetPath = path.join(__dirname, '/mocks/budgets/', budgetName);
   await fs.rm(budgetPath, { force: true, recursive: true });
 
@@ -569,8 +568,20 @@ describe('API CRUD operations', () => {
     const accountId = await api.createAccount({ name: 'test-account' }, 0);
 
     let newTransaction = [
-      { date: '2023-11-03', imported_id: '11', amount: 100, notes: 'notes' },
-      { date: '2023-11-03', imported_id: '12', amount: 100, notes: '' },
+      {
+        account: accountId,
+        date: '2023-11-03',
+        imported_id: '11',
+        amount: 100,
+        notes: 'notes',
+      },
+      {
+        account: accountId,
+        date: '2023-11-03',
+        imported_id: '12',
+        amount: 100,
+        notes: '',
+      },
     ];
 
     const addResult = await api.addTransactions(accountId, newTransaction, {
@@ -598,9 +609,27 @@ describe('API CRUD operations', () => {
     expect(transactions).toHaveLength(2);
 
     newTransaction = [
-      { date: '2023-12-03', imported_id: '11', amount: 100, notes: 'notes' },
-      { date: '2023-12-03', imported_id: '12', amount: 100, notes: 'notes' },
-      { date: '2023-12-03', imported_id: '22', amount: 200, notes: '' },
+      {
+        account: accountId,
+        date: '2023-12-03',
+        imported_id: '11',
+        amount: 100,
+        notes: 'notes',
+      },
+      {
+        account: accountId,
+        date: '2023-12-03',
+        imported_id: '12',
+        amount: 100,
+        notes: 'notes',
+      },
+      {
+        account: accountId,
+        date: '2023-12-03',
+        imported_id: '22',
+        amount: 200,
+        notes: '',
+      },
     ];
 
     const reconciled = await api.importTransactions(accountId, newTransaction);
@@ -653,5 +682,61 @@ describe('API CRUD operations', () => {
       ]),
     );
     expect(transactions).toHaveLength(1);
+  });
+
+  test('Transactions: import notes are preserved when importing', async () => {
+    const accountId = await api.createAccount({ name: 'test-account' }, 0);
+
+    // Test with notes
+    const transactionsWithNotes = [
+      {
+        date: '2023-11-03',
+        imported_id: '11',
+        amount: 100,
+        notes: 'test note',
+      },
+    ];
+
+    const addResultWithNotes = await api.addTransactions(
+      accountId,
+      transactionsWithNotes,
+      {
+        learnCategories: true,
+        runTransfers: true,
+      },
+    );
+    expect(addResultWithNotes).toBe('ok');
+
+    let transactions = await api.getTransactions(
+      accountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+    expect(transactions[0].notes).toBe('test note');
+
+    // Clear transactions
+    await api.deleteTransaction(transactions[0].id);
+
+    // Test without notes
+    const transactionsWithoutNotes = [
+      { date: '2023-11-03', imported_id: '11', amount: 100, notes: null },
+    ];
+
+    const addResultWithoutNotes = await api.addTransactions(
+      accountId,
+      transactionsWithoutNotes,
+      {
+        learnCategories: true,
+        runTransfers: true,
+      },
+    );
+    expect(addResultWithoutNotes).toBe('ok');
+
+    transactions = await api.getTransactions(
+      accountId,
+      '2023-11-01',
+      '2023-11-30',
+    );
+    expect(transactions[0].notes).toBeNull();
   });
 });

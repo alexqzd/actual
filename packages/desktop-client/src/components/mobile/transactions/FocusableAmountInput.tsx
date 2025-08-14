@@ -9,21 +9,22 @@ import React, {
   type CSSProperties,
 } from 'react';
 
+import { Button } from '@actual-app/components/button';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 
 import {
   amountToCurrency,
   appendDecimals,
   currencyToAmount,
-} from 'loot-core/src/shared/util';
+  reapplyThousandSeparators,
+} from 'loot-core/shared/util';
 
-import { useMergedRefs } from '../../../hooks/useMergedRefs';
-import { useSyncedPref } from '../../../hooks/useSyncedPref';
-import { theme } from '../../../style';
-import { makeAmountFullStyle } from '../../budget/util';
-import { Button } from '../../common/Button2';
-import { Text } from '../../common/Text';
-import { View } from '../../common/View';
+import { makeAmountFullStyle } from '@desktop-client/components/budget/util';
+import { useMergedRefs } from '@desktop-client/hooks/useMergedRefs';
+import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
 
 type AmountInputProps = {
   value: number;
@@ -48,7 +49,7 @@ const AmountInput = memo(function AmountInput({
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
   const [value, setValue] = useState(0);
-  const inputRef = useRef<HTMLInputElement>();
+  const inputRef = useRef<HTMLInputElement>(null);
   const [hideFraction] = useSyncedPref('hideFraction');
 
   const mergedInputRef = useMergedRefs<HTMLInputElement>(
@@ -97,9 +98,12 @@ const AmountInput = memo(function AmountInput({
   };
 
   const onUpdate = (value: string) => {
-    props.onUpdate?.(value);
+    const originalAmount = Math.abs(props.value);
     const amount = applyText();
-    props.onUpdateAmount?.(amount);
+    if (amount !== originalAmount) {
+      props.onUpdate?.(value);
+      props.onUpdateAmount?.(amount);
+    }
   };
 
   const onBlur: HTMLProps<HTMLInputElement>['onBlur'] = e => {
@@ -110,6 +114,7 @@ const AmountInput = memo(function AmountInput({
   };
 
   const onChangeText = (text: string) => {
+    text = reapplyThousandSeparators(text);
     text = appendDecimals(text, String(hideFraction) === 'true');
     setEditing(true);
     setText(text);
@@ -151,7 +156,7 @@ const AmountInput = memo(function AmountInput({
           pointerEvents: 'none',
           ...textStyle,
         }}
-        data-testid="amount-fake-input"
+        data-testid="amount-input-text"
       >
         {editing ? text : amountToCurrency(value)}
       </Text>

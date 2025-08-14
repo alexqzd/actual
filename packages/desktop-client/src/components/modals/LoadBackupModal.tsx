@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
+import { Trans, useTranslation } from 'react-i18next';
 
-import { loadBackup, makeBackup } from 'loot-core/client/actions';
-import { type Backup } from 'loot-core/server/backups';
-import { send, listen, unlisten } from 'loot-core/src/platform/client/fetch';
+import { Block } from '@actual-app/components/block';
+import { Button } from '@actual-app/components/button';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { useMetadataPref } from '../../hooks/useMetadataPref';
-import { theme } from '../../style';
-import { Block } from '../common/Block';
-import { Button } from '../common/Button2';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { Row, Cell } from '../table';
+import { send, listen } from 'loot-core/platform/client/fetch';
+import { type Backup } from 'loot-core/server/budgetfiles/backups';
+
+import { loadBackup, makeBackup } from '@desktop-client/budgets/budgetsSlice';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { Row, Cell } from '@desktop-client/components/table';
+import { useMetadataPref } from '@desktop-client/hooks/useMetadataPref';
+import { type Modal as ModalType } from '@desktop-client/modals/modalsSlice';
+import { useDispatch } from '@desktop-client/redux';
 
 type BackupTableProps = {
   backups: Backup[];
@@ -41,11 +47,10 @@ function BackupTable({ backups, onSelect }: BackupTableProps) {
   );
 }
 
-type LoadBackupModalProps = {
-  budgetId: string;
-  watchUpdates: boolean;
-  backupDisabled: boolean;
-};
+type LoadBackupModalProps = Extract<
+  ModalType,
+  { name: 'load-backup' }
+>['options'];
 
 export function LoadBackupModal({
   budgetId,
@@ -58,13 +63,14 @@ export function LoadBackupModal({
   const budgetIdToLoad = budgetId ?? prefsBudgetId;
 
   useEffect(() => {
-    send('backups-get', { id: budgetIdToLoad }).then(setBackups);
+    if (budgetIdToLoad) {
+      send('backups-get', { id: budgetIdToLoad }).then(setBackups);
+    }
   }, [budgetIdToLoad]);
 
   useEffect(() => {
     if (watchUpdates) {
-      listen('backups-updated', setBackups);
-      return () => unlisten('backups-updated');
+      return listen('backups-updated', setBackups);
     }
   }, [watchUpdates]);
 
@@ -97,31 +103,42 @@ export function LoadBackupModal({
                 <Block>
                   <Block style={{ marginBottom: 10 }}>
                     <Text style={{ fontWeight: 600 }}>
-                      {t('You are currently working from a backup.')}
+                      <Trans>You are currently working from a backup.</Trans>
                     </Text>{' '}
-                    {t(
-                      'You can load a different backup or revert to the original version below.',
-                    )}
+                    <Trans>
+                      You can load a different backup or revert to the original
+                      version below.
+                    </Trans>
                   </Block>
                   <Button
                     variant="primary"
-                    onPress={() =>
-                      dispatch(loadBackup(budgetIdToLoad, latestBackup.id))
-                    }
+                    onPress={() => {
+                      if (budgetIdToLoad && latestBackup.id) {
+                        dispatch(
+                          loadBackup({
+                            budgetId: budgetIdToLoad,
+                            backupId: latestBackup.id,
+                          }),
+                        );
+                      }
+                    }}
                   >
-                    {t('Revert to original version')}
+                    <Trans>Revert to original version</Trans>
                   </Button>
                 </Block>
               ) : (
                 <View style={{ alignItems: 'flex-start' }}>
                   <Block style={{ marginBottom: 10 }}>
-                    {t(
-                      'Select a backup to load. After loading a backup, you will have a chance to revert to the current version in this screen.',
-                    )}{' '}
+                    <Trans>
+                      Select a backup to load. After loading a backup, you will
+                      have a chance to revert to the current version in this
+                      screen.
+                    </Trans>{' '}
                     <Text style={{ fontWeight: 600 }}>
-                      {t(
-                        'If you use a backup, you will have to setup all your devices to sync from the new budget.',
-                      )}
+                      <Trans>
+                        If you use a backup, you will have to set up all your
+                        devices to sync from the new budget.
+                      </Trans>
                     </Text>
                   </Block>
                   <Button
@@ -129,19 +146,25 @@ export function LoadBackupModal({
                     isDisabled={backupDisabled}
                     onPress={() => dispatch(makeBackup())}
                   >
-                    {t('Backup now')}
+                    <Trans>Back up now</Trans>
                   </Button>
                 </View>
               )}
             </View>
             {previousBackups.length === 0 ? (
               <Block style={{ color: theme.tableTextLight, marginLeft: 20 }}>
-                {t('No backups available')}
+                <Trans>No backups available</Trans>
               </Block>
             ) : (
               <BackupTable
                 backups={previousBackups}
-                onSelect={id => dispatch(loadBackup(budgetIdToLoad, id))}
+                onSelect={id => {
+                  if (budgetIdToLoad && id) {
+                    dispatch(
+                      loadBackup({ budgetId: budgetIdToLoad, backupId: id }),
+                    );
+                  }
+                }}
               />
             )}
           </View>

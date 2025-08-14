@@ -1,5 +1,4 @@
 import * as db from '../db';
-import { Schedule } from '../db/types';
 
 import {
   CategoryWithTemplateNote,
@@ -9,28 +8,26 @@ import {
 } from './statements';
 import { checkTemplates, storeTemplates } from './template-notes';
 
-jest.mock('../db');
-jest.mock('./statements');
+vi.mock('../db');
+vi.mock('./statements');
 
 function mockGetTemplateNotesForCategories(
   templateNotes: CategoryWithTemplateNote[],
 ) {
-  (getCategoriesWithTemplateNotes as jest.Mock).mockResolvedValue(
-    templateNotes,
-  );
+  vi.mocked(getCategoriesWithTemplateNotes).mockResolvedValue(templateNotes);
 }
 
-function mockGetActiveSchedules(schedules: Schedule[]) {
-  (getActiveSchedules as jest.Mock).mockResolvedValue(schedules);
+function mockGetActiveSchedules(schedules: db.DbSchedule[]) {
+  vi.mocked(getActiveSchedules).mockResolvedValue(schedules);
 }
 
 function mockDbUpdate() {
-  (db.update as jest.Mock).mockResolvedValue(undefined);
+  vi.mocked(db.update).mockResolvedValue(undefined);
 }
 
 describe('storeTemplates', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   const testCases = [
@@ -75,6 +72,26 @@ describe('storeTemplates', () => {
     },
     {
       description:
+        'Stores template when prefix is used with valid template notes',
+      mockTemplateNotes: [
+        {
+          id: 'cat1',
+          name: 'Category 1',
+          note: 'test: #template 12',
+        },
+      ],
+      expectedTemplates: [
+        {
+          type: 'simple',
+          monthly: 12,
+          limit: null,
+          priority: 0,
+          directive: 'template',
+        },
+      ],
+    },
+    {
+      description:
         'Stores templates for categories with valid goal directive template notes',
       mockTemplateNotes: [
         {
@@ -85,7 +102,7 @@ describe('storeTemplates', () => {
       ],
       expectedTemplates: [
         {
-          type: 'simple',
+          type: 'goal',
           amount: 10,
           priority: null,
           directive: 'goal',
@@ -136,7 +153,7 @@ describe('storeTemplates', () => {
 
 describe('checkTemplates', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   const testCases = [
@@ -204,7 +221,39 @@ describe('checkTemplates', () => {
       expected: {
         sticky: true,
         message: 'There were errors interpreting some templates:',
-        pre: 'cat1: Schedule “Non-existent Schedule” does not exist',
+        pre: 'Category 1: Schedule “Non-existent Schedule” does not exist',
+      },
+    },
+    {
+      description: 'Returns errors for invalid increase schedule adjustments',
+      mockTemplateNotes: [
+        {
+          id: 'cat1',
+          name: 'Category 1',
+          note: '#template schedule Mock Schedule 1 [increase 1001%]',
+        },
+      ],
+      mockSchedules: mockSchedules(),
+      expected: {
+        sticky: true,
+        message: 'There were errors interpreting some templates:',
+        pre: 'Category 1: #template schedule Mock Schedule 1 [increase 1001%]\nError: Invalid adjustment percentage (1001%). Must be between -100% and 1000%',
+      },
+    },
+    {
+      description: 'Returns errors for invalid decrease schedule adjustments',
+      mockTemplateNotes: [
+        {
+          id: 'cat1',
+          name: 'Category 1',
+          note: '#template schedule Mock Schedule 1 [decrease 101%]',
+        },
+      ],
+      mockSchedules: mockSchedules(),
+      expected: {
+        sticky: true,
+        message: 'There were errors interpreting some templates:',
+        pre: 'Category 1: #template schedule Mock Schedule 1 [decrease 101%]\nError: Invalid adjustment percentage (-101%). Must be between -100% and 1000%',
       },
     },
   ];
@@ -225,7 +274,7 @@ describe('checkTemplates', () => {
   );
 });
 
-function mockSchedules(): Schedule[] {
+function mockSchedules(): db.DbSchedule[] {
   return [
     {
       id: 'mock-schedule-1',

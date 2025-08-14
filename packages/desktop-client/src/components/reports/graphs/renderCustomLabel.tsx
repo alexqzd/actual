@@ -1,8 +1,9 @@
 // @ts-strict-ignore
 import React from 'react';
 
-import { theme } from '../../../style';
-import { PrivacyFilter } from '../../PrivacyFilter';
+import { theme } from '@actual-app/components/theme';
+
+import { PrivacyFilter } from '@desktop-client/components/PrivacyFilter';
 
 export const renderCustomLabel = (
   calcX: number,

@@ -1,33 +1,44 @@
 import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { Button } from '@actual-app/components/button';
+import { Label } from '@actual-app/components/label';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
 import { send } from 'loot-core/platform/client/fetch';
 import * as asyncStorage from 'loot-core/platform/server/asyncStorage';
 import { getOpenIdErrors } from 'loot-core/shared/errors';
-import { type OpenIdConfig } from 'loot-core/types/models/openid';
+import { type OpenIdConfig } from 'loot-core/types/models';
 
-import { useActions } from '../../hooks/useActions';
-import { theme, styles } from '../../style';
-import { Error } from '../alerts';
-import { Button } from '../common/Button2';
-import { Label } from '../common/Label';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
-import { View } from '../common/View';
-import { OpenIdForm } from '../manager/subscribe/OpenIdForm';
-import { useRefreshLoginMethods } from '../ServerContext';
+import { closeBudget } from '@desktop-client/budgets/budgetsSlice';
+import { Error } from '@desktop-client/components/alerts';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { OpenIdForm } from '@desktop-client/components/manager/subscribe/OpenIdForm';
+import { useRefreshLoginMethods } from '@desktop-client/components/ServerContext';
+import {
+  type Modal as ModalType,
+  popModal,
+} from '@desktop-client/modals/modalsSlice';
+import { useDispatch } from '@desktop-client/redux';
 
-type OpenIDEnableModalProps = {
-  onSave?: () => void;
-};
+type OpenIDEnableModalProps = Extract<
+  ModalType,
+  { name: 'enable-openid' }
+>['options'];
 
 export function OpenIDEnableModal({
   onSave: originalOnSave,
 }: OpenIDEnableModalProps) {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
 
   const [error, setError] = useState('');
-  const actions = useActions();
-  const { closeBudget } = useActions();
   const refreshLoginMethods = useRefreshLoginMethods();
 
   async function onSave(config: OpenIdConfig) {
@@ -38,7 +49,7 @@ export function OpenIDEnableModal({
         try {
           await refreshLoginMethods();
           await asyncStorage.removeItem('user-token');
-          await closeBudget();
+          await dispatch(closeBudget());
         } catch (e) {
           console.error('Failed to cleanup after OpenID enable:', e);
           setError(
@@ -73,7 +84,7 @@ export function OpenIDEnableModal({
                   key="cancel"
                   variant="bare"
                   style={{ marginRight: 10 }}
-                  onPress={actions.popModal}
+                  onPress={() => dispatch(popModal())}
                 >
                   <Trans>Cancel</Trans>
                 </Button>,
@@ -85,7 +96,7 @@ export function OpenIDEnableModal({
                 color: theme.pageTextLight,
                 paddingTop: 5,
               }}
-              title={t('After enabling openid all sessions will be closed')}
+              title={t('After enabling OpenID all sessions will be closed')}
             />
             <Label
               style={{

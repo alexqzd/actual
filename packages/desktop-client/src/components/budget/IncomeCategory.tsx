@@ -1,7 +1,10 @@
 // @ts-strict-ignore
 import React, { type ComponentProps } from 'react';
 
-import { type CategoryEntity } from 'loot-core/src/types/models';
+import { type CategoryEntity } from 'loot-core/types/models';
+
+import { RenderMonths } from './RenderMonths';
+import { SidebarCategory } from './SidebarCategory';
 
 import {
   useDraggable,
@@ -9,25 +12,23 @@ import {
   DropHighlight,
   type OnDragChangeCallback,
   type OnDropCallback,
-} from '../sort';
-import { Row } from '../table';
-
-import { RenderMonths } from './RenderMonths';
-import { SidebarCategory } from './SidebarCategory';
+} from '@desktop-client/components/sort';
+import { Row } from '@desktop-client/components/table';
+import { useDragRef } from '@desktop-client/hooks/useDragRef';
 
 type IncomeCategoryProps = {
   cat: CategoryEntity;
   isLast?: boolean;
-  editingCell: { id: string; cell: string } | null;
+  editingCell: { id: CategoryEntity['id']; cell: string } | null;
   MonthComponent: ComponentProps<typeof RenderMonths>['component'];
   onEditName: ComponentProps<typeof SidebarCategory>['onEditName'];
-  onEditMonth?: (id: string, month: string) => void;
+  onEditMonth?: (id: CategoryEntity['id'], month: string) => void;
   onSave: ComponentProps<typeof SidebarCategory>['onSave'];
   onDelete: ComponentProps<typeof SidebarCategory>['onDelete'];
   onDragChange: OnDragChangeCallback<CategoryEntity>;
   onBudgetAction: (month: string, action: string, arg: unknown) => void;
   onReorder: OnDropCallback;
-  onShowActivity: (id: string, month: string) => void;
+  onShowActivity: (id: CategoryEntity['id'], month: string) => void;
 };
 
 export function IncomeCategory({
@@ -50,6 +51,7 @@ export function IncomeCategory({
     item: cat,
     canDrag: editingCell === null,
   });
+  const handleDragRef = useDragRef(dragRef);
 
   const { dropRef, dropPos } = useDroppable({
     types: 'income-category',
@@ -68,7 +70,7 @@ export function IncomeCategory({
       <DropHighlight pos={dropPos} offset={{ top: 1 }} />
 
       <SidebarCategory
-        innerRef={dragRef}
+        innerRef={handleDragRef}
         category={cat}
         isLast={isLast}
         editing={

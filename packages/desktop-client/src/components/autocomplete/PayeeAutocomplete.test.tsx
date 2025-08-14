@@ -2,19 +2,18 @@ import { render, type Screen, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 
-import { generateAccount } from 'loot-core/src/mocks';
-import { TestProvider } from 'loot-core/src/mocks/redux';
+import { generateAccount } from 'loot-core/mocks';
 import type { AccountEntity, PayeeEntity } from 'loot-core/types/models';
-
-import { AuthProvider } from '../../auth/AuthProvider';
-import { useCommonPayees } from '../../hooks/usePayees';
-import { ResponsiveProvider } from '../responsive/ResponsiveProvider';
 
 import {
   PayeeAutocomplete,
   type PayeeAutocompleteItem,
   type PayeeAutocompleteProps,
 } from './PayeeAutocomplete';
+
+import { AuthProvider } from '@desktop-client/auth/AuthProvider';
+import { useCommonPayees } from '@desktop-client/hooks/usePayees';
+import { TestProvider } from '@desktop-client/redux/mock';
 
 const PAYEE_SELECTOR = '[data-testid][role=option]';
 const PAYEE_SECTION_SELECTOR = '[data-testid$="-item-group"]';
@@ -39,7 +38,7 @@ function makePayee(name: string, options?: { favorite: boolean }): PayeeEntity {
   return {
     id: name.toLowerCase() + '-id',
     name,
-    favorite: options?.favorite ? 1 : 0,
+    favorite: options?.favorite ? true : false,
     transfer_acct: undefined,
   };
 }
@@ -65,17 +64,15 @@ function renderPayeeAutocomplete(
   render(
     <TestProvider>
       <AuthProvider>
-        <ResponsiveProvider>
-          <div data-testid="autocomplete-test">
-            <PayeeAutocomplete
-              {...autocompleteProps}
-              onSelect={vi.fn()}
-              type="single"
-              value={null}
-              embedded={false}
-            />
-          </div>
-        </ResponsiveProvider>
+        <div data-testid="autocomplete-test">
+          <PayeeAutocomplete
+            {...autocompleteProps}
+            onSelect={vi.fn()}
+            type="single"
+            value={null}
+            embedded={false}
+          />
+        </div>
       </AuthProvider>
     </TestProvider>,
   );

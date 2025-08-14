@@ -1,20 +1,21 @@
 import React, { useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { mapField, friendlyOp } from 'loot-core/src/shared/rules';
-import { integerToCurrency } from 'loot-core/src/shared/util';
-import { type RuleConditionEntity } from 'loot-core/src/types/models';
+import { Button } from '@actual-app/components/button';
+import { SvgDelete } from '@actual-app/components/icons/v0';
+import { Popover } from '@actual-app/components/popover';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { SvgDelete } from '../../icons/v0';
-import { theme } from '../../style';
-import { Button } from '../common/Button2';
-import { Popover } from '../common/Popover';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { Value } from '../rules/Value';
+import { mapField, friendlyOp } from 'loot-core/shared/rules';
+import { integerToCurrency } from 'loot-core/shared/util';
+import { type RuleConditionEntity } from 'loot-core/types/models';
 
 import { FilterEditor } from './FiltersMenu';
 import { subfieldFromFilter } from './subfieldFromFilter';
+
+import { Value } from '@desktop-client/components/rules/Value';
 
 let isDatepickerClick = false;
 

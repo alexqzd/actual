@@ -1,4 +1,4 @@
-import { Notification } from '../../client/state-types/notifications';
+import { Template } from '../../types/models/templates';
 import * as db from '../db';
 
 import { parse } from './goal-template.pegjs';
@@ -8,7 +8,13 @@ import {
   getCategoriesWithTemplateNotes,
   resetCategoryGoalDefsWithNoTemplates,
 } from './statements';
-import { Template } from './types/templates';
+
+type Notification = {
+  type?: 'message' | 'error' | 'warning' | undefined;
+  pre?: string | undefined;
+  message: string;
+  sticky?: boolean | undefined;
+};
 
 export const TEMPLATE_PREFIX = '#template';
 export const GOAL_PREFIX = '#goal';
@@ -40,15 +46,20 @@ export async function checkTemplates(): Promise<Notification> {
   const scheduleNames = schedules.map(({ name }) => name);
   const errors: string[] = [];
 
-  categoryWithTemplates.forEach(({ id, name, templates }) => {
+  categoryWithTemplates.forEach(({ name, templates }) => {
     templates.forEach(template => {
       if (template.type === 'error') {
-        errors.push(`${name}: ${template.line}`);
+        // Only show detailed error for adjustment-related errors
+        if (template.error && template.error.includes('adjustment')) {
+          errors.push(`${name}: ${template.line}\nError: ${template.error}`);
+        } else {
+          errors.push(`${name}: ${template.line}`);
+        }
       } else if (
         template.type === 'schedule' &&
         !scheduleNames.includes(template.name)
       ) {
-        errors.push(`${id}: Schedule “${template.name}” does not exist`);
+        errors.push(`${name}: Schedule “${template.name}” does not exist`);
       }
     });
   });
@@ -79,7 +90,7 @@ async function getCategoriesWithTemplates(): Promise<CategoryWithTemplates[]> {
     const parsedTemplates: Template[] = [];
 
     note.split('\n').forEach(line => {
-      const trimmedLine = line.trim();
+      const trimmedLine = line.substring(line.indexOf('#')).trim();
 
       if (
         !trimmedLine.startsWith(TEMPLATE_PREFIX) &&
@@ -90,6 +101,21 @@ async function getCategoriesWithTemplates(): Promise<CategoryWithTemplates[]> {
 
       try {
         const parsedTemplate: Template = parse(trimmedLine);
+
+        // Validate schedule adjustments
+        if (
+          parsedTemplate.type === 'schedule' &&
+          parsedTemplate.adjustment !== undefined
+        ) {
+          if (
+            parsedTemplate.adjustment <= -100 ||
+            parsedTemplate.adjustment > 1000
+          ) {
+            throw new Error(
+              `Invalid adjustment percentage (${parsedTemplate.adjustment}%). Must be between -100% and 1000%`,
+            );
+          }
+        }
 
         parsedTemplates.push(parsedTemplate);
       } catch (e: unknown) {

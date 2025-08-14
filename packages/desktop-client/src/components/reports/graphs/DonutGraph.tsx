@@ -1,27 +1,29 @@
 // @ts-strict-ignore
 import React, { useState, type CSSProperties } from 'react';
 
+import { theme } from '@actual-app/components/theme';
 import { PieChart, Pie, Cell, Sector, ResponsiveContainer } from 'recharts';
 
-import { amountToCurrency } from 'loot-core/src/shared/util';
+import { amountToCurrency } from 'loot-core/shared/util';
 import {
   type balanceTypeOpType,
   type DataEntity,
-} from 'loot-core/src/types/models/reports';
-import { type RuleConditionEntity } from 'loot-core/types/models/rule';
-
-import { useAccounts } from '../../../hooks/useAccounts';
-import { useCategories } from '../../../hooks/useCategories';
-import { useNavigate } from '../../../hooks/useNavigate';
-import { theme } from '../../../style';
-import { PrivacyFilter } from '../../PrivacyFilter';
-import { Container } from '../Container';
+  type RuleConditionEntity,
+} from 'loot-core/types/models';
 
 import { adjustTextSize } from './adjustTextSize';
 import { renderCustomLabel } from './renderCustomLabel';
 import { showActivity } from './showActivity';
 
+import { PrivacyFilter } from '@desktop-client/components/PrivacyFilter';
+import { Container } from '@desktop-client/components/reports/Container';
+import { useAccounts } from '@desktop-client/hooks/useAccounts';
+import { useCategories } from '@desktop-client/hooks/useCategories';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+
 const RADIAN = Math.PI / 180;
+
+const canDeviceHover = () => window.matchMedia('(hover: hover)').matches;
 
 const ActiveShapeMobile = props => {
   const {
@@ -241,17 +243,13 @@ export function DonutGraph({
 
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // Sort the data in the pie chart
-  const unsortedData = data[splitData];
-  const sortedData = unsortedData.slice().sort((a, b) => getVal(b) - getVal(a));
-
   return (
     <Container style={style}>
       {(width, height) => {
         const compact = height <= 300 || width <= 300;
 
         return (
-          sortedData && (
+          data[splitData] && (
             <ResponsiveContainer>
               <div>
                 {!compact && <div style={{ marginTop: '15px' }} />}
@@ -272,7 +270,7 @@ export function DonutGraph({
                     dataKey={val => getVal(val)}
                     nameKey={yAxis}
                     isAnimationActive={false}
-                    data={sortedData}
+                    data={data[splitData]}
                     innerRadius={Math.min(width, height) * 0.2}
                     fill="#8884d8"
                     labelLine={false}
@@ -283,29 +281,39 @@ export function DonutGraph({
                     endAngle={-270}
                     onMouseLeave={() => setPointer('')}
                     onMouseEnter={(_, index) => {
-                      setActiveIndex(index);
-                      if (!['Group', 'Interval'].includes(groupBy)) {
-                        setPointer('pointer');
+                      if (canDeviceHover()) {
+                        setActiveIndex(index);
+                        if (!['Group', 'Interval'].includes(groupBy)) {
+                          setPointer('pointer');
+                        }
                       }
                     }}
-                    onClick={item =>
-                      ((compact && showTooltip) || !compact) &&
-                      !['Group', 'Interval'].includes(groupBy) &&
-                      showActivity({
-                        navigate,
-                        categories,
-                        accounts,
-                        balanceTypeOp,
-                        filters,
-                        showHiddenCategories,
-                        showOffBudget,
-                        type: 'totals',
-                        startDate: data.startDate,
-                        endDate: data.endDate,
-                        field: groupBy.toLowerCase(),
-                        id: item.id,
-                      })
-                    }
+                    onClick={(item, index) => {
+                      if (!canDeviceHover()) {
+                        setActiveIndex(index);
+                      }
+
+                      if (
+                        !['Group', 'Interval'].includes(groupBy) &&
+                        (canDeviceHover() || activeIndex === index) &&
+                        ((compact && showTooltip) || !compact)
+                      ) {
+                        showActivity({
+                          navigate,
+                          categories,
+                          accounts,
+                          balanceTypeOp,
+                          filters,
+                          showHiddenCategories,
+                          showOffBudget,
+                          type: 'totals',
+                          startDate: data.startDate,
+                          endDate: data.endDate,
+                          field: groupBy.toLowerCase(),
+                          id: item.id,
+                        });
+                      }
+                    }}
                   >
                     {data.legend.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />

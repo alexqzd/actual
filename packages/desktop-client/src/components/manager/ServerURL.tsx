@@ -1,10 +1,11 @@
 import React from 'react';
 import { Trans } from 'react-i18next';
 
-import { Link } from '../common/Link';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { useServerURL } from '../ServerContext';
+import { Text } from '@actual-app/components/text';
+import { View } from '@actual-app/components/view';
+
+import { Link } from '@desktop-client/components/common/Link';
+import { useServerURL } from '@desktop-client/components/ServerContext';
 
 export function ServerURL() {
   const url = useServerURL();

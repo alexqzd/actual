@@ -1,7 +1,8 @@
 import React from 'react';
+import { Trans } from 'react-i18next';
 
-import { theme } from '../../../style';
-import { Text } from '../../common/Text';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
 
 import { formatDate, parseDate } from './utils';
 
@@ -27,13 +28,13 @@ export function ParsedDate({
       <Text>
         {date || (
           <Text style={{ color: theme.pageTextLight, fontStyle: 'italic' }}>
-            Empty
+            <Trans>Empty</Trans>
           </Text>
         )}{' '}
         &rarr;{' '}
       </Text>
       <Text style={{ color: parsed ? theme.noticeTextLight : theme.errorText }}>
-        {parsed || 'Invalid'}
+        {parsed || <Trans>Invalid</Trans>}
       </Text>
     </Text>
   );

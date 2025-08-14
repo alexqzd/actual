@@ -5,37 +5,40 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
+
+import { Button } from '@actual-app/components/button';
+import {
+  SvgClose,
+  SvgDotsHorizontalTriple,
+  SvgLockOpen,
+} from '@actual-app/components/icons/v1';
+import { SvgNotesPaper } from '@actual-app/components/icons/v2';
+import { Menu } from '@actual-app/components/menu';
+import { Popover } from '@actual-app/components/popover';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
 import { type AccountEntity } from 'loot-core/types/models';
 
-import { useAccount } from '../../hooks/useAccount';
-import { useAccounts } from '../../hooks/useAccounts';
-import { useNotes } from '../../hooks/useNotes';
-import { SvgClose, SvgDotsHorizontalTriple, SvgLockOpen } from '../../icons/v1';
-import { SvgNotesPaper } from '../../icons/v2';
-import { styles, theme } from '../../style';
-import { Button } from '../common/Button2';
-import { Menu } from '../common/Menu';
 import {
   Modal,
   ModalCloseButton,
   ModalHeader,
   ModalTitle,
-} from '../common/Modal';
-import { Popover } from '../common/Popover';
-import { View } from '../common/View';
-import { Notes } from '../Notes';
-import { validateAccountName } from '../util/accountValidation';
+} from '@desktop-client/components/common/Modal';
+import { Notes } from '@desktop-client/components/Notes';
+import { validateAccountName } from '@desktop-client/components/util/accountValidation';
+import { useAccount } from '@desktop-client/hooks/useAccount';
+import { useAccounts } from '@desktop-client/hooks/useAccounts';
+import { useNotes } from '@desktop-client/hooks/useNotes';
+import { type Modal as ModalType } from '@desktop-client/modals/modalsSlice';
 
-type AccountMenuModalProps = {
-  accountId: string;
-  onSave: (account: AccountEntity) => void;
-  onCloseAccount: (accountId: string) => void;
-  onReopenAccount: (accountId: string) => void;
-  onEditNotes: (id: string) => void;
-  onClose?: () => void;
-};
+type AccountMenuModalProps = Extract<
+  ModalType,
+  { name: 'account-menu' }
+>['options'];
 
 export function AccountMenuModal({
   accountId,
@@ -155,7 +158,7 @@ export function AccountMenuModal({
                 notes={
                   originalNotes && originalNotes.length > 0
                     ? originalNotes
-                    : 'No notes'
+                    : t('No notes')
                 }
                 editable={false}
                 focused={false}
@@ -184,7 +187,7 @@ export function AccountMenuModal({
                   height={20}
                   style={{ paddingRight: 5 }}
                 />
-                {t('Edit notes')}
+                <Trans>Edit notes</Trans>
               </Button>
             </View>
           </View>
@@ -205,6 +208,7 @@ function AdditionalAccountMenu({
   onClose,
   onReopen,
 }: AdditionalAccountMenuProps) {
+  const { t } = useTranslation();
   const triggerRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const itemStyle: CSSProperties = {
@@ -222,7 +226,7 @@ function AdditionalAccountMenu({
       <Button
         ref={triggerRef}
         variant="bare"
-        aria-label="Menu"
+        aria-label={t('Menu')}
         onPress={() => {
           setMenuOpen(true);
         }}
@@ -244,13 +248,13 @@ function AdditionalAccountMenu({
               account.closed
                 ? {
                     name: 'reopen',
-                    text: 'Reopen account',
+                    text: t('Reopen account'),
                     icon: SvgLockOpen,
                     iconSize: 15,
                   }
                 : {
                     name: 'close',
-                    text: 'Close account',
+                    text: t('Close account'),
                     icon: SvgClose,
                     iconSize: 15,
                   },

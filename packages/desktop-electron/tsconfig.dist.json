@@ -5,10 +5,12 @@
     // the latest Node 16.x release supports all of the features
     "target": "ES2021",
     "module": "CommonJS",
+    "moduleResolution": "node10",
     "noEmit": false,
     "declaration": true,
     "outDir": "build",
+    "rootDir": ".."
   },
   "include": ["."],
-  "exclude": ["**/node_modules/*", "build/**/*"]
+  "exclude": ["**/node_modules/*", "build/**/*", "e2e/**/*"]
 }

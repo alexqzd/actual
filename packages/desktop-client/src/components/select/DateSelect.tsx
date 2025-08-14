@@ -1,6 +1,5 @@
 // @ts-strict-ignore
 import React, {
-  type CSSProperties,
   forwardRef,
   useEffect,
   useImperativeHandle,
@@ -10,11 +9,24 @@ import React, {
   useState,
   type ComponentProps,
   type KeyboardEvent,
-  type MutableRefObject,
+  type RefObject,
 } from 'react';
 
+import { Input } from '@actual-app/components/input';
+import { Popover } from '@actual-app/components/popover';
+import { styles, type CSSProperties } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
-import { parse, parseISO, format, subDays, addDays, isValid } from 'date-fns';
+import {
+  type Locale,
+  parse,
+  parseISO,
+  format,
+  subDays,
+  addDays,
+  isValid,
+} from 'date-fns';
 import Pikaday from 'pikaday';
 
 import 'pikaday/css/pikaday.css';
@@ -25,16 +37,13 @@ import {
   getShortYearFormat,
   getShortYearRegex,
   currentDate,
-} from 'loot-core/src/shared/months';
-
-import { useSyncedPref } from '../../hooks/useSyncedPref';
-import { styles, theme } from '../../style';
-import { Input } from '../common/Input';
-import { Popover } from '../common/Popover';
-import { View } from '../common/View';
+} from 'loot-core/shared/months';
 
 import DateSelectLeft from './DateSelect.left.png';
 import DateSelectRight from './DateSelect.right.png';
+
+import { useLocale } from '@desktop-client/hooks/useLocale';
+import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
 
 const pickerStyles: CSSProperties = {
   '& .pika-single.actual-date-picker': {
@@ -81,6 +90,39 @@ const pickerStyles: CSSProperties = {
   },
 };
 
+type PikadayI18n = {
+  previousMonth: string;
+  nextMonth: string;
+  months: string[];
+  weekdays: string[];
+  weekdaysShort: string[];
+};
+
+function createPikadayLocale(dateFnsLocale: Locale): PikadayI18n {
+  const months = Array.from({ length: 12 }, (_, i) =>
+    format(new Date(2023, i, 1), 'MMMM', { locale: dateFnsLocale }),
+  );
+
+  const weekdays = Array.from({ length: 7 }, (_, i) =>
+    format(new Date(2023, 0, i + 1), 'EEEE', { locale: dateFnsLocale }),
+  );
+
+  const weekdaysShort = Array.from({ length: 7 }, (_, i) =>
+    format(new Date(2023, 0, i + 1), 'EEE', { locale: dateFnsLocale }).slice(
+      0,
+      3,
+    ),
+  );
+
+  return {
+    previousMonth: 'Previous',
+    nextMonth: 'Next',
+    months,
+    weekdays,
+    weekdaysShort,
+  };
+}
+
 type DatePickerProps = {
   value: string;
   firstDayOfWeekIdx: string;
@@ -94,6 +136,7 @@ type DatePickerForwardedRef = {
 };
 const DatePicker = forwardRef<DatePickerForwardedRef, DatePickerProps>(
   ({ value, firstDayOfWeekIdx, dateFormat, onUpdate, onSelect }, ref) => {
+    const locale = useLocale();
     const picker = useRef(null);
     const mountPoint = useRef(null);
 
@@ -132,6 +175,8 @@ const DatePicker = forwardRef<DatePickerForwardedRef, DatePickerProps>(
     );
 
     useLayoutEffect(() => {
+      const pikadayLocale = createPikadayLocale(locale);
+
       picker.current = new Pikaday({
         theme: 'actual-date-picker',
         keyboardInput: false,
@@ -147,6 +192,7 @@ const DatePicker = forwardRef<DatePickerForwardedRef, DatePickerProps>(
           return parse(dateString, dateFormat, new Date());
         },
         onSelect,
+        i18n: pikadayLocale,
       });
 
       mountPoint.current.appendChild(picker.current.el);
@@ -157,7 +203,7 @@ const DatePicker = forwardRef<DatePickerForwardedRef, DatePickerProps>(
     }, []);
 
     useEffect(() => {
-      if (picker.current.getDate() !== value) {
+      if (value && picker.current.getDate() !== value) {
         picker.current.setDate(parse(value, dateFormat, new Date()), true);
       }
     }, [value, dateFormat]);
@@ -185,9 +231,8 @@ type DateSelectProps = {
   isOpen?: boolean;
   embedded?: boolean;
   dateFormat: string;
-  focused?: boolean;
   openOnFocus?: boolean;
-  inputRef?: MutableRefObject<HTMLInputElement>;
+  inputRef?: RefObject<HTMLInputElement>;
   shouldSaveFromKey?: (e: KeyboardEvent<HTMLInputElement>) => boolean;
   clearOnBlur?: boolean;
   onUpdate?: (selectedDate: string) => void;
@@ -202,7 +247,6 @@ export function DateSelect({
   isOpen,
   embedded,
   dateFormat = 'yyyy-MM-dd',
-  focused,
   openOnFocus = true,
   inputRef: originalInputRef,
   shouldSaveFromKey = defaultShouldSaveFromKey,
@@ -302,11 +346,13 @@ export function DateSelect({
         onUpdate?.(defaultValue);
       }
     } else if (shouldSaveFromKey(e)) {
-      setValue(selectedValue);
-      setOpen(false);
+      if (selectedValue) {
+        setValue(selectedValue);
+        const date = parse(selectedValue, dateFormat, new Date());
+        onSelect(format(date, 'yyyy-MM-dd'));
+      }
 
-      const date = parse(selectedValue, dateFormat, new Date());
-      onSelect(format(date, 'yyyy-MM-dd'));
+      setOpen(false);
 
       if (open && e.key === 'Enter') {
         // This stops the event from propagating up
@@ -353,9 +399,8 @@ export function DateSelect({
     <View {...containerProps}>
       <Input
         id={id}
-        focused={focused}
         {...inputProps}
-        inputRef={inputRef}
+        ref={inputRef}
         value={value}
         onPointerUp={() => {
           if (!embedded) {

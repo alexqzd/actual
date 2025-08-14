@@ -1,51 +1,52 @@
-import React, { useState, useEffect, type CSSProperties } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Trans, useTranslation } from 'react-i18next';
+import { Routes, Route, useLocation } from 'react-router';
 
-import { css } from '@emotion/css';
-
-import { sync } from 'loot-core/client/actions';
-import * as Platform from 'loot-core/src/client/platform';
-import * as queries from 'loot-core/src/client/queries';
-import { listen } from 'loot-core/src/platform/client/fetch';
-import {
-  isDevelopmentEnvironment,
-  isElectron,
-} from 'loot-core/src/shared/environment';
-
-import { useGlobalPref } from '../hooks/useGlobalPref';
-import { useMetadataPref } from '../hooks/useMetadataPref';
-import { useNavigate } from '../hooks/useNavigate';
-import { useSyncedPref } from '../hooks/useSyncedPref';
-import { SvgArrowLeft } from '../icons/v1';
+import { Button } from '@actual-app/components/button';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { SvgArrowLeft } from '@actual-app/components/icons/v1';
 import {
   SvgAlertTriangle,
   SvgNavigationMenu,
   SvgViewHide,
   SvgViewShow,
-} from '../icons/v2';
-import { theme, styles } from '../style';
+} from '@actual-app/components/icons/v2';
+import { SpaceBetween } from '@actual-app/components/space-between';
+import { styles, type CSSProperties } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+import { css } from '@emotion/css';
+
+import { listen } from 'loot-core/platform/client/fetch';
+import {
+  isDevelopmentEnvironment,
+  isElectron,
+} from 'loot-core/shared/environment';
+import * as Platform from 'loot-core/shared/platform';
 
 import { AccountSyncCheck } from './accounts/AccountSyncCheck';
 import { AnimatedRefresh } from './AnimatedRefresh';
 import { MonthCountSelector } from './budget/MonthCountSelector';
-import { Button } from './common/Button2';
 import { Link } from './common/Link';
-import { SpaceBetween } from './common/SpaceBetween';
-import { Text } from './common/Text';
-import { View } from './common/View';
 import { HelpMenu } from './HelpMenu';
 import { LoggedInUser } from './LoggedInUser';
-import { useResponsive } from './responsive/ResponsiveProvider';
 import { useServerURL } from './ServerContext';
 import { useSidebar } from './sidebar/SidebarProvider';
-import { useSheetValue } from './spreadsheet/useSheetValue';
 import { ThemeSelector } from './ThemeSelector';
 
+import { sync } from '@desktop-client/app/appSlice';
+import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
+import { useMetadataPref } from '@desktop-client/hooks/useMetadataPref';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { useSheetValue } from '@desktop-client/hooks/useSheetValue';
+import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
+import { useDispatch } from '@desktop-client/redux';
+import * as bindings from '@desktop-client/spreadsheet/bindings';
+
 function UncategorizedButton() {
-  const count: number | null = useSheetValue(queries.uncategorizedCount());
+  const count: number | null = useSheetValue(bindings.uncategorizedCount());
   if (count === null || count <= 0) {
     return null;
   }
@@ -59,7 +60,7 @@ function UncategorizedButton() {
         color: theme.errorText,
       }}
     >
-      {count} uncategorized {count === 1 ? 'transaction' : 'transactions'}
+      <Trans count={count}>{{ count }} uncategorized transactions</Trans>
     </Link>
   );
 }
@@ -69,6 +70,7 @@ type PrivacyButtonProps = {
 };
 
 function PrivacyButton({ style }: PrivacyButtonProps) {
+  const { t } = useTranslation();
   const [isPrivacyEnabledPref, setPrivacyEnabledPref] =
     useSyncedPref('isPrivacyEnabled');
   const isPrivacyEnabled = String(isPrivacyEnabledPref) === 'true';
@@ -90,7 +92,9 @@ function PrivacyButton({ style }: PrivacyButtonProps) {
   return (
     <Button
       variant="bare"
-      aria-label={`${isPrivacyEnabled ? 'Disable' : 'Enable'} privacy mode`}
+      aria-label={
+        isPrivacyEnabled ? t('Disable privacy mode') : t('Enable privacy mode')
+      }
       onPress={() => setPrivacyEnabledPref(String(!isPrivacyEnabled))}
       style={style}
     >
@@ -117,8 +121,8 @@ function SyncButton({ style, isMobile = false }: SyncButtonProps) {
   >(null);
 
   useEffect(() => {
-    const unlisten = listen('sync-event', ({ type, subtype, syncDisabled }) => {
-      if (type === 'start') {
+    const unlisten = listen('sync-event', event => {
+      if (event.type === 'start') {
         setSyncing(true);
         setSyncState(null);
       } else {
@@ -130,24 +134,24 @@ function SyncButton({ style, isMobile = false }: SyncButtonProps) {
         }, 200);
       }
 
-      if (type === 'error') {
+      if (event.type === 'error') {
         // Use the offline state if either there is a network error or
         // if this file isn't a "cloud file". You can't sync a local
         // file.
-        if (subtype === 'network') {
+        if (event.subtype === 'network') {
           setSyncState('offline');
         } else if (!cloudFileId) {
           setSyncState('local');
         } else {
           setSyncState('error');
         }
-      } else if (type === 'success') {
-        setSyncState(syncDisabled ? 'disabled' : null);
+      } else if (event.type === 'success') {
+        setSyncState(event.syncDisabled ? 'disabled' : null);
       }
     });
 
     return unlisten;
-  }, []);
+  }, [cloudFileId]);
 
   const mobileColor =
     syncState === 'error'
@@ -241,10 +245,10 @@ function SyncButton({ style, isMobile = false }: SyncButtonProps) {
       )}
       <Text style={isMobile ? { ...mobileTextStyle } : { marginLeft: 3 }}>
         {syncState === 'disabled'
-          ? 'Disabled'
+          ? t('Disabled')
           : syncState === 'offline'
-            ? 'Offline'
-            : 'Sync'}
+            ? t('Offline')
+            : t('Sync')}
       </Text>
     </Button>
   );
@@ -287,9 +291,9 @@ export function Titlebar({ style }: TitlebarProps) {
         '& *': {
           pointerEvents: 'auto',
         },
-        ...(!Platform.isBrowser &&
-          Platform.OS === 'mac' &&
-          floatingSidebar && { paddingLeft: 80 }),
+        ...(!Platform.isBrowser && Platform.OS === 'mac' && floatingSidebar
+          ? { paddingLeft: 80 }
+          : {}),
         ...style,
       }}
     >
@@ -327,7 +331,7 @@ export function Titlebar({ style }: TitlebarProps) {
                   height={10}
                   style={{ marginRight: 5, color: 'currentColor' }}
                 />{' '}
-                {t('Back')}
+                <Trans>Back</Trans>
               </Button>
             ) : null
           }

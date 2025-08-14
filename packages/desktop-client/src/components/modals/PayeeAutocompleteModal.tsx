@@ -1,26 +1,28 @@
-import React, { type ComponentPropsWithoutRef } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useAccounts } from '../../hooks/useAccounts';
-import { useNavigate } from '../../hooks/useNavigate';
-import { usePayees } from '../../hooks/usePayees';
-import { theme } from '../../style';
-import { PayeeAutocomplete } from '../autocomplete/PayeeAutocomplete';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { theme } from '@actual-app/components/theme';
+
+import { PayeeAutocomplete } from '@desktop-client/components/autocomplete/PayeeAutocomplete';
 import {
   ModalCloseButton,
   Modal,
   ModalTitle,
   ModalHeader,
-} from '../common/Modal';
-import { useResponsive } from '../responsive/ResponsiveProvider';
+} from '@desktop-client/components/common/Modal';
+import { useAccounts } from '@desktop-client/hooks/useAccounts';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { usePayees } from '@desktop-client/hooks/usePayees';
+import { type Modal as ModalType } from '@desktop-client/modals/modalsSlice';
 
-type PayeeAutocompleteModalProps = {
-  autocompleteProps: ComponentPropsWithoutRef<typeof PayeeAutocomplete>;
-  onClose: () => void;
-};
+type PayeeAutocompleteModalProps = Extract<
+  ModalType,
+  { name: 'payee-autocomplete' }
+>['options'];
 
 export function PayeeAutocompleteModal({
-  autocompleteProps,
+  onSelect,
   onClose,
 }: PayeeAutocompleteModalProps) {
   const { t } = useTranslation();
@@ -42,7 +44,9 @@ export function PayeeAutocompleteModal({
       onClose={onClose}
       containerProps={{
         style: {
-          height: isNarrowWidth ? '85vh' : 275,
+          height: isNarrowWidth
+            ? 'calc(var(--visual-viewport-height) * 0.85)'
+            : 275,
           backgroundColor: theme.menuAutoCompleteBackground,
         },
       }}
@@ -76,7 +80,8 @@ export function PayeeAutocompleteModal({
             showManagePayees={!isNarrowWidth}
             showMakeTransfer={!isNarrowWidth}
             {...defaultAutocompleteProps}
-            {...autocompleteProps}
+            onSelect={onSelect}
+            value={null}
           />
         </>
       )}

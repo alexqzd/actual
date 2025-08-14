@@ -8,13 +8,12 @@ import React, {
   useRef,
   type Dispatch,
   type ReactElement,
+  type ReactNode,
 } from 'react';
-import { useSelector } from 'react-redux';
 
-import { type State } from 'loot-core/src/client/state-types';
-import { listen } from 'loot-core/src/platform/client/fetch';
-import * as undo from 'loot-core/src/platform/client/undo';
-import { type UndoState } from 'loot-core/src/server/undo';
+import { listen } from 'loot-core/platform/client/fetch';
+import * as undo from 'loot-core/platform/client/undo';
+import { type UndoState } from 'loot-core/server/undo';
 
 type Range<T> = { start: T; end: T | null };
 type Item = { id: string };
@@ -205,9 +204,7 @@ export function useSelected<T extends Item>(
     const prevState = undo.getUndoState('selectedItems');
     undo.setUndoState('selectedItems', { name, items: state.selectedItems });
     return () => undo.setUndoState('selectedItems', prevState);
-  }, [state.selectedItems]);
-
-  const lastUndoState = useSelector((state: State) => state.app.lastUndoState);
+  }, [name, state.selectedItems]);
 
   useEffect(() => {
     function onUndo({ messages, undoTag }: UndoState) {
@@ -230,12 +227,13 @@ export function useSelected<T extends Item>(
       }
     }
 
-    if (lastUndoState && lastUndoState.current) {
-      onUndo(lastUndoState.current);
+    const lastUndoEvent = undo.getUndoState('undoEvent');
+    if (lastUndoEvent) {
+      onUndo(lastUndoEvent);
     }
 
     return listen('undo-event', onUndo);
-  }, []);
+  }, [name]);
 
   return {
     items: state.selectedItems,
@@ -257,7 +255,7 @@ export function useSelectedItems() {
 type SelectedProviderProps<T extends Item> = {
   instance: ReturnType<typeof useSelected<T>>;
   fetchAllIds?: () => Promise<string[]>;
-  children: ReactElement;
+  children: ReactNode;
 };
 
 export function SelectedProvider<T extends Item>({
@@ -265,37 +263,35 @@ export function SelectedProvider<T extends Item>({
   fetchAllIds,
   children,
 }: SelectedProviderProps<T>) {
-  const latestItems = useRef(null);
-
-  useEffect(() => {
-    latestItems.current = instance.items;
-  }, [instance.items]);
+  const { items: instanceItems, dispatch: instanceDispatch } = instance;
+  const latestItems = useRef(instanceItems);
+  latestItems.current = instanceItems;
 
   const dispatch = useCallback(
     async (action: Actions) => {
       if (action.type === 'select-all') {
         if (latestItems.current && latestItems.current.size > 0) {
-          return instance.dispatch({
+          return instanceDispatch({
             type: 'select-none',
             isRangeSelect: action.isRangeSelect,
           });
         } else {
           if (fetchAllIds) {
-            return instance.dispatch({
+            return instanceDispatch({
               type: 'select-all',
               ids: await fetchAllIds(),
               isRangeSelect: action.isRangeSelect,
             });
           }
-          return instance.dispatch({
+          return instanceDispatch({
             type: 'select-all',
             isRangeSelect: action.isRangeSelect,
           });
         }
       }
-      return instance.dispatch(action);
+      return instanceDispatch(action);
     },
-    [instance.dispatch, fetchAllIds],
+    [instanceDispatch, fetchAllIds],
   );
 
   return (
@@ -337,7 +333,7 @@ export function SelectedProviderWithItems<T extends Item>({
 
   useEffect(() => {
     registerDispatch?.(selected.dispatch);
-  }, [registerDispatch]);
+  }, [registerDispatch, selected.dispatch]);
 
   return (
     <SelectedProvider<T> instance={selected} fetchAllIds={fetchAllIds}>

@@ -1,10 +1,10 @@
 import React, { type ReactNode, type CSSProperties } from 'react';
 
-import { theme, styles } from '../style';
-
-import { Text } from './common/Text';
-import { View } from './common/View';
-import { useResponsive } from './responsive/ResponsiveProvider';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
 const HEADER_HEIGHT = 50;
 
@@ -140,6 +140,7 @@ export function Page({ header, style, padding, children, footer }: PageProps) {
     >
       {headerToRender}
       <View
+        role="main"
         style={{
           flex: 1,
           overflowY: isNarrowWidth ? 'auto' : undefined,

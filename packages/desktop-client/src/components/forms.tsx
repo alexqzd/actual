@@ -1,15 +1,10 @@
-import React, {
-  type ReactNode,
-  type ComponentProps,
-  type CSSProperties,
-} from 'react';
+import React, { type ReactNode, type ComponentProps } from 'react';
 
+import { type CSSProperties } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
-
-import { theme } from '../style';
-
-import { Text } from './common/Text';
-import { View } from './common/View';
 
 type SectionLabelProps = {
   title?: string;
@@ -101,11 +96,11 @@ export const Checkbox = (props: CheckboxProps) => {
               display: 'block',
               background:
                 theme.checkboxBackgroundSelected +
-                // eslint-disable-next-line rulesdir/typography
+                // eslint-disable-next-line actual/typography
                 ' url(\'data:image/svg+xml; utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="white" d="M0 11l2-2 5 5L18 3l2 2L7 18z"/></svg>\') 9px 9px',
               width: 9,
               height: 9,
-              // eslint-disable-next-line rulesdir/typography
+              // eslint-disable-next-line actual/typography
               content: '" "',
             },
           },
@@ -129,7 +124,7 @@ export const Checkbox = (props: CheckboxProps) => {
               right: -5,
               border: '2px solid ' + theme.checkboxBorderSelected,
               borderRadius: 6,
-              // eslint-disable-next-line rulesdir/typography
+              // eslint-disable-next-line actual/typography
               content: '" "',
             },
           },

@@ -4,20 +4,22 @@ import React, {
   useState,
   type ComponentProps,
   type CSSProperties,
+  useCallback,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { send } from 'loot-core/src/platform/client/fetch';
+import { Button } from '@actual-app/components/button';
+import { SvgCustomNotesPaper } from '@actual-app/components/icons/v2';
+import { Popover } from '@actual-app/components/popover';
+import { theme } from '@actual-app/components/theme';
+import { Tooltip } from '@actual-app/components/tooltip';
+import { View } from '@actual-app/components/view';
 
-import { useNotes } from '../hooks/useNotes';
-import { SvgCustomNotesPaper } from '../icons/v2';
-import { theme } from '../style';
+import { send } from 'loot-core/platform/client/fetch';
 
-import { Button } from './common/Button2';
-import { Popover } from './common/Popover';
-import { Tooltip } from './common/Tooltip';
-import { View } from './common/View';
 import { Notes } from './Notes';
+
+import { useNotes } from '@desktop-client/hooks/useNotes';
 
 type NotesButtonProps = {
   id: string;
@@ -42,12 +44,21 @@ export function NotesButton({
   const hasNotes = note && note !== '';
 
   const [tempNotes, setTempNotes] = useState<string>(note);
-  useEffect(() => setTempNotes(note), [note]);
+  useEffect(() => setTempNotes(note), [note, id]);
 
-  function onClose() {
-    send('notes-save', { id, note: tempNotes });
-    setIsOpen(false);
-  }
+  const onOpenChange = useCallback<
+    NonNullable<ComponentProps<typeof Popover>['onOpenChange']>
+  >(
+    isOpen => {
+      if (!isOpen) {
+        if (tempNotes !== note) {
+          void send('notes-save', { id, note: tempNotes });
+        }
+        setIsOpen(false);
+      }
+    },
+    [id, note, tempNotes],
+  );
 
   return (
     <Tooltip
@@ -80,7 +91,7 @@ export function NotesButton({
       <Popover
         triggerRef={triggerRef}
         isOpen={isOpen}
-        onOpenChange={onClose}
+        onOpenChange={onOpenChange}
         placement={tooltipPosition}
         style={{ padding: 4 }}
       >

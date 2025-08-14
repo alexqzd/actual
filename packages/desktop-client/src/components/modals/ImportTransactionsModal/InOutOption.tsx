@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { Input } from '../../common/Input';
-import { View } from '../../common/View';
+import { Input } from '@actual-app/components/input';
+import { View } from '@actual-app/components/view';
 
 import { CheckboxOption } from './CheckboxOption';
 
@@ -29,7 +29,7 @@ export function InOutOption({
         onChange={onToggle}
       >
         {inOutMode
-          ? 'in/out identifier'
+          ? 'In/Out outflow value'
           : 'Select column to specify if amount goes in/out'}
       </CheckboxOption>
       {inOutMode && (
@@ -37,7 +37,7 @@ export function InOutOption({
           type="text"
           value={outValue}
           onChangeValue={onChangeText}
-          placeholder="Value for out rows, i.e. Credit"
+          placeholder="Value for out rows, e.g: ‘Credit’"
         />
       )}
     </View>

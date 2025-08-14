@@ -1,8 +1,10 @@
 import { initBackend as initSQLBackend } from 'absurd-sql/dist/indexeddb-main-thread';
+// eslint-disable-next-line import/no-unresolved
 import { registerSW } from 'virtual:pwa-register';
 
-import * as Platform from 'loot-core/src/client/platform';
+import * as Platform from 'loot-core/shared/platform';
 
+// eslint-disable-next-line typescript-paths/absolute-parent-import
 import packageJson from '../package.json';
 
 const backendWorkerUrl = new URL('./browser-server.js', import.meta.url);
@@ -13,10 +15,14 @@ const backendWorkerUrl = new URL('./browser-server.js', import.meta.url);
 // everything else.
 
 const IS_DEV = process.env.NODE_ENV === 'development';
-const ACTUAL_VERSION = Platform.isPlaywright ? '99.9.9' : packageJson.version;
+const ACTUAL_VERSION = Platform.isPlaywright
+  ? '99.9.9'
+  : process.env.REACT_APP_REVIEW_ID
+    ? '.preview'
+    : packageJson.version;
 
 // *** Start the backend ***
-let worker;
+let worker = null;
 
 function createBackendWorker() {
   worker = new Worker(backendWorkerUrl);
@@ -81,7 +87,15 @@ global.Actual = {
       });
   },
 
-  startOAuthServer: () => {},
+  startSyncServer: () => {},
+
+  stopSyncServer: () => {},
+
+  isSyncServerRunning: () => false,
+
+  startOAuthServer: () => {
+    return '';
+  },
 
   restartElectronServer: () => {},
 
@@ -172,7 +186,7 @@ global.Actual = {
   },
 
   setTheme: theme => {
-    window.__actionsForMenu.saveGlobalPrefs({ theme });
+    window.__actionsForMenu.saveGlobalPrefs({ prefs: { theme } });
   },
 
   moveBudgetDirectory: () => {},

@@ -1,29 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
+import { useTranslation, Trans } from 'react-i18next';
 
+import { Button, ButtonWithLoading } from '@actual-app/components/button';
+import { Input } from '@actual-app/components/input';
+import { Select } from '@actual-app/components/select';
+import { Stack } from '@actual-app/components/stack';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 import deepEqual from 'deep-equal';
 
-import {
-  getPayees,
-  importPreviewTransactions,
-  importTransactions,
-  parseTransactions,
-} from 'loot-core/client/actions';
-import { amountToInteger } from 'loot-core/src/shared/util';
-
-import { useDateFormat } from '../../../hooks/useDateFormat';
-import { useSyncedPrefs } from '../../../hooks/useSyncedPrefs';
-import { theme } from '../../../style';
-import { Button, ButtonWithLoading } from '../../common/Button2';
-import { Input } from '../../common/Input';
-import { Modal, ModalCloseButton, ModalHeader } from '../../common/Modal';
-import { Select } from '../../common/Select';
-import { Stack } from '../../common/Stack';
-import { Text } from '../../common/Text';
-import { View } from '../../common/View';
-import { SectionLabel } from '../../forms';
-import { TableHeader, TableWithNavigator } from '../../table';
+import { send } from 'loot-core/platform/client/fetch';
+import { amountToInteger } from 'loot-core/shared/util';
 
 import { CheckboxOption } from './CheckboxOption';
 import { DateFormatSelect } from './DateFormatSelect';
@@ -38,6 +26,26 @@ import {
   parseDate,
   stripCsvImportTransaction,
 } from './utils';
+
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { SectionLabel } from '@desktop-client/components/forms';
+import {
+  TableHeader,
+  TableWithNavigator,
+} from '@desktop-client/components/table';
+import { useCategories } from '@desktop-client/hooks/useCategories';
+import { useDateFormat } from '@desktop-client/hooks/useDateFormat';
+import { useSyncedPrefs } from '@desktop-client/hooks/useSyncedPrefs';
+import {
+  getPayees,
+  importPreviewTransactions,
+  importTransactions,
+} from '@desktop-client/queries/queriesSlice';
+import { useDispatch } from '@desktop-client/redux';
 
 function getFileType(filepath) {
   const m = filepath.match(/\.([^.]*)$/);
@@ -140,16 +148,21 @@ function parseCategoryFields(trans, categories) {
   return match;
 }
 
-export function ImportTransactionsModal({ options }) {
+export function ImportTransactionsModal({
+  filename: originalFileName,
+  accountId,
+  onImported,
+}) {
   const { t } = useTranslation();
   const dateFormat = useDateFormat() || 'MM/dd/yyyy';
   const [prefs, savePrefs] = useSyncedPrefs();
   const dispatch = useDispatch();
+  const categories = useCategories();
 
   const [multiplierAmount, setMultiplierAmount] = useState('');
   const [loadingState, setLoadingState] = useState('parsing');
   const [error, setError] = useState(null);
-  const [filename, setFilename] = useState(options.filename);
+  const [filename, setFilename] = useState(originalFileName);
   const [transactions, setTransactions] = useState([]);
   const [filetype, setFileType] = useState(null);
   const [fieldMappings, setFieldMappings] = useState(null);
@@ -157,7 +170,7 @@ export function ImportTransactionsModal({ options }) {
   const [flipAmount, setFlipAmount] = useState(false);
   const [multiplierEnabled, setMultiplierEnabled] = useState(false);
   const [reconcile, setReconcile] = useState(true);
-  const { accountId, categories, onImported } = options;
+  const [importNotes, setImportNotes] = useState(true);
 
   // This cannot be set after parsing the file, because changing it
   // requires re-parsing the file. This is different from the other
@@ -201,6 +214,7 @@ export function ImportTransactionsModal({ options }) {
       multiplierAmount,
     ) => {
       const previewTransactions = [];
+      const inOutModeEnabled = isOfxFile(filetype) ? false : inOutMode;
 
       for (let trans of transactions) {
         if (trans.isMatchedTransaction) {
@@ -231,7 +245,7 @@ export function ImportTransactionsModal({ options }) {
         const { amount } = parseAmountFields(
           trans,
           splitMode,
-          inOutMode,
+          inOutModeEnabled,
           outValue,
           flipAmount,
           multiplierAmount,
@@ -266,8 +280,11 @@ export function ImportTransactionsModal({ options }) {
 
       // Retreive the transactions that would be updated (along with the existing trx)
       const previewTrx = await dispatch(
-        importPreviewTransactions(accountId, previewTransactions),
-      );
+        importPreviewTransactions({
+          accountId,
+          transactions: previewTransactions,
+        }),
+      ).unwrap();
       const matchedUpdateMap = previewTrx.reduce((map, entry) => {
         map[entry.transaction.trx_id] = entry;
         return map;
@@ -321,8 +338,12 @@ export function ImportTransactionsModal({ options }) {
       setFilename(filename);
       setFileType(filetype);
 
-      const { errors, transactions: parsedTransactions = [] } = await dispatch(
-        parseTransactions(filename, options),
+      const { errors, transactions: parsedTransactions = [] } = await send(
+        'transactions-parse-file',
+        {
+          filepath: filename,
+          options,
+        },
       );
 
       let index = 0;
@@ -399,15 +420,9 @@ export function ImportTransactionsModal({ options }) {
         setTransactions(transactionPreview);
       }
     },
-    [
-      accountId,
-      dispatch,
-      getImportPreview,
-      inOutMode,
-      multiplierAmount,
-      outValue,
-      prefs,
-    ],
+    // We use some state variables from the component, but do not want to re-parse when they change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [accountId, getImportPreview, prefs],
   );
 
   function onMultiplierChange(e) {
@@ -419,21 +434,23 @@ export function ImportTransactionsModal({ options }) {
   }
 
   useEffect(() => {
-    const fileType = getFileType(options.filename);
+    const fileType = getFileType(originalFileName);
     const parseOptions = getParseOptions(fileType, {
       delimiter,
       hasHeaderRow,
       skipLines,
       fallbackMissingPayeeToMemo,
+      importNotes,
     });
 
-    parse(options.filename, parseOptions);
+    parse(originalFileName, parseOptions);
   }, [
-    options.filename,
+    originalFileName,
     delimiter,
     hasHeaderRow,
     skipLines,
     fallbackMissingPayeeToMemo,
+    importNotes,
     parse,
   ]);
 
@@ -442,14 +459,8 @@ export function ImportTransactionsModal({ options }) {
       return;
     }
 
-    if (flipAmount === true) {
-      setFlipAmount(!flipAmount);
-    }
-
     const isSplit = !splitMode;
     setSplitMode(isSplit);
-    setInOutMode(false);
-    setFlipAmount(false);
 
     // Run auto-detection on the fields to try to detect the fields
     // automatically
@@ -470,7 +481,7 @@ export function ImportTransactionsModal({ options }) {
   }
 
   async function onNewFile() {
-    const res = await window.Actual?.openFileDialog({
+    const res = await window.Actual.openFileDialog({
       filters: [
         {
           name: 'Financial Files',
@@ -485,6 +496,7 @@ export function ImportTransactionsModal({ options }) {
       hasHeaderRow,
       skipLines,
       fallbackMissingPayeeToMemo,
+      importNotes,
     });
 
     parse(res[0], parseOptions);
@@ -565,22 +577,25 @@ export function ImportTransactionsModal({ options }) {
           ? trans.date
           : parseDate(trans.date, parseDateFormat);
       if (date == null) {
-        errorMessage = `Unable to parse date ${
-          trans.date || '(empty)'
-        } with given date format`;
+        errorMessage = t(
+          'Unable to parse date {{date}} with given date format',
+          { date: trans.date || '(empty)' },
+        );
         break;
       }
 
       const { amount } = parseAmountFields(
         trans,
         splitMode,
-        inOutMode,
+        isOfxFile(filetype) ? false : inOutMode,
         outValue,
         flipAmount,
         multiplierAmount,
       );
       if (amount == null) {
-        errorMessage = `Transaction on ${trans.date} has no amount`;
+        errorMessage = t('Transaction on {{date}} has no amount', {
+          date: trans.date,
+        });
         break;
       }
 
@@ -615,6 +630,7 @@ export function ImportTransactionsModal({ options }) {
         date,
         amount: amountToInteger(amount),
         cleared: clearOnImport,
+        notes: importNotes ? finalTransaction.notes : null,
       });
     }
 
@@ -651,12 +667,17 @@ export function ImportTransactionsModal({ options }) {
     if (filetype === 'csv' || filetype === 'qif') {
       savePrefs({
         [`flip-amount-${accountId}-${filetype}`]: String(flipAmount),
+        [`import-notes-${accountId}-${filetype}`]: String(importNotes),
       });
     }
 
     const didChange = await dispatch(
-      importTransactions(accountId, finalTransactions, reconcile),
-    );
+      importTransactions({
+        accountId,
+        transactions: finalTransactions,
+        reconcile,
+      }),
+    ).unwrap();
     if (didChange) {
       await dispatch(getPayees());
     }
@@ -707,13 +728,29 @@ export function ImportTransactionsModal({ options }) {
     headers.unshift({ name: ' ', width: 31 });
   }
   if (inOutMode) {
-    headers.push({ name: 'In/Out', width: 90, style: { textAlign: 'left' } });
+    headers.push({
+      name: t('In/Out'),
+      width: 90,
+      style: { textAlign: 'left' },
+    });
   }
   if (splitMode) {
-    headers.push({ name: 'Outflow', width: 90, style: { textAlign: 'right' } });
-    headers.push({ name: 'Inflow', width: 90, style: { textAlign: 'right' } });
+    headers.push({
+      name: t('Outflow'),
+      width: 90,
+      style: { textAlign: 'right' },
+    });
+    headers.push({
+      name: t('Inflow'),
+      width: 90,
+      style: { textAlign: 'right' },
+    });
   } else {
-    headers.push({ name: 'Amount', width: 90, style: { textAlign: 'right' } });
+    headers.push({
+      name: t('Amount'),
+      width: 90,
+      style: { textAlign: 'right' },
+    });
   }
 
   return (
@@ -734,7 +771,10 @@ export function ImportTransactionsModal({ options }) {
           {error && !error.parsed && (
             <View style={{ alignItems: 'center', marginBottom: 15 }}>
               <Text style={{ marginRight: 10, color: theme.errorText }}>
-                <strong>Error:</strong> {error.message}
+                <strong>
+                  <Trans>Error:</Trans>
+                </strong>{' '}
+                {error.message}
               </Text>
             </View>
           )}
@@ -767,7 +807,7 @@ export function ImportTransactionsModal({ options }) {
                         fontStyle: 'italic',
                       }}
                     >
-                      {t('No transactions found')}
+                      <Trans>No transactions found</Trans>
                     </View>
                   );
                 }}
@@ -806,7 +846,7 @@ export function ImportTransactionsModal({ options }) {
               </Text>
               {error.parsed && (
                 <Button onPress={() => onNewFile()}>
-                  {t('Select new file...')}
+                  <Trans>Select new file...</Trans>
                 </Button>
               )}
             </View>
@@ -835,13 +875,37 @@ export function ImportTransactionsModal({ options }) {
                   filename,
                   getParseOptions('ofx', {
                     fallbackMissingPayeeToMemo: !fallbackMissingPayeeToMemo,
+                    importNotes,
                   }),
                 );
               }}
             >
-              {t('Use Memo as a fallback for empty Payees')}
+              <Trans>Use Memo as a fallback for empty Payees</Trans>
             </CheckboxOption>
           )}
+
+          {filetype !== 'csv' && (
+            <CheckboxOption
+              id="import_notes"
+              checked={importNotes}
+              onChange={() => {
+                setImportNotes(!importNotes);
+                parse(
+                  filename,
+                  getParseOptions(filetype, {
+                    delimiter,
+                    hasHeaderRow,
+                    skipLines,
+                    fallbackMissingPayeeToMemo,
+                    importNotes: !importNotes,
+                  }),
+                );
+              }}
+            >
+              <Trans>Import notes from file</Trans>
+            </CheckboxOption>
+          )}
+
           {(isOfxFile(filetype) || isCamtFile(filetype)) && (
             <CheckboxOption
               id="form_dont_reconcile"
@@ -850,7 +914,7 @@ export function ImportTransactionsModal({ options }) {
                 setReconcile(!reconcile);
               }}
             >
-              {t('Merge with existing transactions')}
+              <Trans>Merge with existing transactions</Trans>
             </CheckboxOption>
           )}
 
@@ -890,7 +954,7 @@ export function ImportTransactionsModal({ options }) {
                         alignItems: 'baseline',
                       }}
                     >
-                      {t('Delimiter:')}
+                      <Trans>Delimiter:</Trans>
                       <Select
                         options={[
                           [',', ','],
@@ -907,6 +971,7 @@ export function ImportTransactionsModal({ options }) {
                               delimiter: value,
                               hasHeaderRow,
                               skipLines,
+                              importNotes,
                             }),
                           );
                         }}
@@ -921,7 +986,7 @@ export function ImportTransactionsModal({ options }) {
                         alignItems: 'baseline',
                       }}
                     >
-                      {t('Skip lines:')}
+                      <Trans>Skip lines:</Trans>
                       <Input
                         type="number"
                         value={skipLines}
@@ -934,6 +999,7 @@ export function ImportTransactionsModal({ options }) {
                               delimiter,
                               hasHeaderRow,
                               skipLines: +value,
+                              importNotes,
                             }),
                           );
                         }}
@@ -951,11 +1017,12 @@ export function ImportTransactionsModal({ options }) {
                             delimiter,
                             hasHeaderRow: !hasHeaderRow,
                             skipLines,
+                            importNotes,
                           }),
                         );
                       }}
                     >
-                      {t('File has header row')}
+                      <Trans>File has header row</Trans>
                     </CheckboxOption>
                     <CheckboxOption
                       id="clear_on_import"
@@ -964,7 +1031,7 @@ export function ImportTransactionsModal({ options }) {
                         setClearOnImport(!clearOnImport);
                       }}
                     >
-                      {t('Clear transactions on import')}
+                      <Trans>Clear transactions on import</Trans>
                     </CheckboxOption>
                     <CheckboxOption
                       id="form_dont_reconcile"
@@ -973,7 +1040,7 @@ export function ImportTransactionsModal({ options }) {
                         setReconcile(!reconcile);
                       }}
                     >
-                      {t('Merge with existing transactions')}
+                      <Trans>Merge with existing transactions</Trans>
                     </CheckboxOption>
                   </View>
                 )}
@@ -985,39 +1052,13 @@ export function ImportTransactionsModal({ options }) {
                   <CheckboxOption
                     id="form_flip"
                     checked={flipAmount}
-                    disabled={splitMode || inOutMode}
                     onChange={() => {
                       setFlipAmount(!flipAmount);
                       runImportPreview();
                     }}
                   >
-                    {t('Flip amount')}
+                    <Trans>Flip amount</Trans>
                   </CheckboxOption>
-                  {filetype === 'csv' && (
-                    <>
-                      <CheckboxOption
-                        id="form_split"
-                        checked={splitMode}
-                        disabled={inOutMode || flipAmount}
-                        onChange={() => {
-                          onSplitMode();
-                          runImportPreview();
-                        }}
-                      >
-                        {t('Split amount into separate inflow/outflow columns')}
-                      </CheckboxOption>
-                      <InOutOption
-                        inOutMode={inOutMode}
-                        outValue={outValue}
-                        disabled={splitMode || flipAmount}
-                        onToggle={() => {
-                          setInOutMode(!inOutMode);
-                          runImportPreview();
-                        }}
-                        onChangeText={setOutValue}
-                      />
-                    </>
-                  )}
                   <MultiplierOption
                     multiplierEnabled={multiplierEnabled}
                     multiplierAmount={multiplierAmount}
@@ -1028,6 +1069,31 @@ export function ImportTransactionsModal({ options }) {
                     }}
                     onChangeAmount={onMultiplierChange}
                   />
+                  {filetype === 'csv' && (
+                    <>
+                      <CheckboxOption
+                        id="form_split"
+                        checked={splitMode}
+                        onChange={() => {
+                          onSplitMode();
+                          runImportPreview();
+                        }}
+                      >
+                        <Trans>
+                          Split amount into separate inflow/outflow columns
+                        </Trans>
+                      </CheckboxOption>
+                      <InOutOption
+                        inOutMode={inOutMode}
+                        outValue={outValue}
+                        onToggle={() => {
+                          setInOutMode(!inOutMode);
+                          runImportPreview();
+                        }}
+                        onChangeText={setOutValue}
+                      />
+                    </>
+                  )}
                 </View>
               </Stack>
             </View>
@@ -1043,27 +1109,25 @@ export function ImportTransactionsModal({ options }) {
                 gap: '1em',
               }}
             >
-              <ButtonWithLoading
-                variant="primary"
-                autoFocus
-                isDisabled={
-                  transactions?.filter(
-                    trans => !trans.isMatchedTransaction && trans.selected,
-                  ).length === 0
-                }
-                isLoading={loadingState === 'importing'}
-                onPress={() => {
-                  onImport(close);
-                }}
-              >
-                Import{' '}
-                {
-                  transactions?.filter(
-                    trans => !trans.isMatchedTransaction && trans.selected,
-                  ).length
-                }{' '}
-                {t('transactions')}
-              </ButtonWithLoading>
+              {(() => {
+                const count = transactions?.filter(
+                  trans => !trans.isMatchedTransaction && trans.selected,
+                ).length;
+
+                return (
+                  <ButtonWithLoading
+                    variant="primary"
+                    autoFocus
+                    isDisabled={count === 0}
+                    isLoading={loadingState === 'importing'}
+                    onPress={() => {
+                      onImport(close);
+                    }}
+                  >
+                    <Trans count={count}>Import {{ count }} transactions</Trans>
+                  </ButtonWithLoading>
+                );
+              })()}
             </View>
           </View>
         </>
@@ -1076,11 +1140,17 @@ function getParseOptions(fileType, options = {}) {
   if (fileType === 'csv') {
     const { delimiter, hasHeaderRow, skipLines } = options;
     return { delimiter, hasHeaderRow, skipLines };
-  } else if (isOfxFile(fileType)) {
-    const { fallbackMissingPayeeToMemo } = options;
-    return { fallbackMissingPayeeToMemo };
   }
-  return {};
+  if (isOfxFile(fileType)) {
+    const { fallbackMissingPayeeToMemo, importNotes } = options;
+    return { fallbackMissingPayeeToMemo, importNotes };
+  }
+  if (isCamtFile(fileType)) {
+    const { importNotes } = options;
+    return { importNotes };
+  }
+  const { importNotes } = options;
+  return { importNotes };
 }
 
 function isOfxFile(fileType) {

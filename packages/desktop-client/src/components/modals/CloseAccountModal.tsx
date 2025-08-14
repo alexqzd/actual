@@ -1,30 +1,37 @@
 // @ts-strict-ignore
 import React, { type FormEvent, useState, type CSSProperties } from 'react';
 import { Form } from 'react-aria-components';
-import { useTranslation } from 'react-i18next'; // Import useTranslation
-import { useDispatch } from 'react-redux';
+import { useTranslation, Trans } from 'react-i18next';
 
+import { Button } from '@actual-app/components/button';
+import { FormError } from '@actual-app/components/form-error';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { Paragraph } from '@actual-app/components/paragraph';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
+import { integerToCurrency } from 'loot-core/shared/util';
+import { type AccountEntity } from 'loot-core/types/models';
+import { type TransObjectLiteral } from 'loot-core/types/util';
+
+import { AccountAutocomplete } from '@desktop-client/components/autocomplete/AccountAutocomplete';
+import { CategoryAutocomplete } from '@desktop-client/components/autocomplete/CategoryAutocomplete';
+import { Link } from '@desktop-client/components/common/Link';
 import {
-  closeAccount,
-  forceCloseAccount,
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { useAccounts } from '@desktop-client/hooks/useAccounts';
+import { useCategories } from '@desktop-client/hooks/useCategories';
+import {
+  type Modal as ModalType,
   pushModal,
-} from 'loot-core/client/actions';
-import { integerToCurrency } from 'loot-core/src/shared/util';
-import { type AccountEntity } from 'loot-core/src/types/models';
-
-import { useAccounts } from '../../hooks/useAccounts';
-import { useCategories } from '../../hooks/useCategories';
-import { styles, theme } from '../../style';
-import { AccountAutocomplete } from '../autocomplete/AccountAutocomplete';
-import { CategoryAutocomplete } from '../autocomplete/CategoryAutocomplete';
-import { Button } from '../common/Button2';
-import { FormError } from '../common/FormError';
-import { Link } from '../common/Link';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
-import { Paragraph } from '../common/Paragraph';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { useResponsive } from '../responsive/ResponsiveProvider';
+} from '@desktop-client/modals/modalsSlice';
+import { closeAccount } from '@desktop-client/queries/queriesSlice';
+import { useDispatch } from '@desktop-client/redux';
 
 function needsCategory(
   account: AccountEntity,
@@ -39,11 +46,10 @@ function needsCategory(
   return account.offbudget === 0 && isOffBudget;
 }
 
-type CloseAccountModalProps = {
-  account: AccountEntity;
-  balance: number;
-  canDelete: boolean;
-};
+type CloseAccountModalProps = Extract<
+  ModalType,
+  { name: 'close-account' }
+>['options'];
 
 export function CloseAccountModal({
   account,
@@ -89,20 +95,27 @@ export function CloseAccountModal({
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const transferError = balance !== 0 && transferAccountId === '';
+    const transferError = balance !== 0 && !transferAccountId;
     setTransferError(transferError);
 
     const categoryError =
-      needsCategory(account, transferAccountId, accounts) && categoryId === '';
+      needsCategory(account, transferAccountId, accounts) && !categoryId;
     setCategoryError(categoryError);
 
-    if (!transferError && !categoryError) {
-      setLoading(true);
-
-      dispatch(
-        closeAccount(account.id, transferAccountId || null, categoryId || null),
-      );
+    if (transferError || categoryError) {
+      return false;
     }
+
+    setLoading(true);
+
+    dispatch(
+      closeAccount({
+        id: account.id,
+        transferAccountId: transferAccountId || null,
+        categoryId: categoryId || null,
+      }),
+    );
+    return true;
   };
 
   return (
@@ -119,33 +132,51 @@ export function CloseAccountModal({
           />
           <View>
             <Paragraph>
-              {t('Are you sure you want to close ')}
-              <strong>{account.name}</strong>?{' '}
+              <Trans>
+                Are you sure you want to close{' '}
+                <strong>
+                  {{ accountName: account.name } as TransObjectLiteral}
+                </strong>
+                ?{' '}
+              </Trans>
               {canDelete ? (
                 <span>
-                  This account has no transactions so it will be permanently
-                  deleted.
+                  <Trans>
+                    This account has no transactions so it will be permanently
+                    deleted.
+                  </Trans>
                 </span>
               ) : (
                 <span>
-                  This account has transactions so we can’t permanently delete
-                  it.
+                  <Trans>
+                    This account has transactions so we can’t permanently delete
+                    it.
+                  </Trans>
                 </span>
               )}
             </Paragraph>
             <Form
               onSubmit={e => {
-                onSubmit(e);
-                close();
+                if (onSubmit(e)) {
+                  close();
+                }
               }}
             >
               {balance !== 0 && (
                 <View>
                   <Paragraph>
-                    This account has a balance of{' '}
-                    <strong>{integerToCurrency(balance)}</strong>. To close this
-                    account, select a different account to transfer this balance
-                    to:
+                    <Trans>
+                      This account has a balance of{' '}
+                      <strong>
+                        {
+                          {
+                            balance: integerToCurrency(balance),
+                          } as TransObjectLiteral
+                        }
+                      </strong>
+                      . To close this account, select a different account to
+                      transfer this balance to:
+                    </Trans>
                   </Paragraph>
 
                   <View style={{ marginBottom: 15 }}>
@@ -162,9 +193,14 @@ export function CloseAccountModal({
                           },
                           onClick: () => {
                             dispatch(
-                              pushModal('account-autocomplete', {
-                                includeClosedAccounts: false,
-                                onSelect: onSelectAccount,
+                              pushModal({
+                                modal: {
+                                  name: 'account-autocomplete',
+                                  options: {
+                                    includeClosedAccounts: false,
+                                    onSelect: onSelectAccount,
+                                  },
+                                },
                               }),
                             );
                           },
@@ -176,16 +212,18 @@ export function CloseAccountModal({
 
                   {transferError && (
                     <FormError style={{ marginBottom: 15 }}>
-                      {t('Transfer is required')}
+                      <Trans>Transfer is required</Trans>
                     </FormError>
                   )}
 
                   {needsCategory(account, transferAccountId, accounts) && (
                     <View style={{ marginBottom: 15 }}>
                       <Paragraph>
-                        Since you are transferring the balance from an on budget
-                        account to an off budget account, this transaction must
-                        be categorized. Select a category:
+                        <Trans>
+                          Since you are transferring the balance from an on
+                          budget account to an off budget account, this
+                          transaction must be categorized. Select a category:
+                        </Trans>
                       </Paragraph>
 
                       <CategoryAutocomplete
@@ -200,10 +238,15 @@ export function CloseAccountModal({
                             },
                             onClick: () => {
                               dispatch(
-                                pushModal('category-autocomplete', {
-                                  categoryGroups,
-                                  showHiddenCategories: true,
-                                  onSelect: onSelectCategory,
+                                pushModal({
+                                  modal: {
+                                    name: 'category-autocomplete',
+                                    options: {
+                                      categoryGroups,
+                                      showHiddenCategories: true,
+                                      onSelect: onSelectCategory,
+                                    },
+                                  },
                                 }),
                               );
                             },
@@ -213,7 +256,9 @@ export function CloseAccountModal({
                       />
 
                       {categoryError && (
-                        <FormError>{t('Category is required')}</FormError>
+                        <FormError>
+                          <Trans>Category is required</Trans>
+                        </FormError>
                       )}
                     </View>
                   )}
@@ -223,22 +268,28 @@ export function CloseAccountModal({
               {!canDelete && (
                 <View style={{ marginBottom: 15 }}>
                   <Text style={{ fontSize: 12 }}>
-                    {t('You can also')}{' '}
-                    <Link
-                      variant="text"
-                      onClick={() => {
-                        setLoading(true);
-
-                        dispatch(forceCloseAccount(account.id));
-                        close();
-                      }}
-                      style={{ color: theme.errorText }}
-                    >
-                      {t('force close')}
-                    </Link>{' '}
-                    the account which will delete it and all its transactions
-                    permanently. Doing so may change your budget unexpectedly
-                    since money in it may vanish.
+                    <Trans>
+                      You can also{' '}
+                      <Link
+                        variant="text"
+                        onClick={() => {
+                          setLoading(true);
+                          dispatch(
+                            closeAccount({
+                              id: account.id,
+                              forced: true,
+                            }),
+                          );
+                          close();
+                        }}
+                        style={{ color: theme.errorText }}
+                      >
+                        force close
+                      </Link>{' '}
+                      the account which will delete it and all its transactions
+                      permanently. Doing so may change your budget unexpectedly
+                      since money in it may vanish.
+                    </Trans>
                   </Text>
                 </View>
               )}
@@ -256,7 +307,7 @@ export function CloseAccountModal({
                   }}
                   onPress={close}
                 >
-                  {t('Cancel')}
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button
                   type="submit"
@@ -265,7 +316,7 @@ export function CloseAccountModal({
                     height: isNarrowWidth ? styles.mobileMinHeight : undefined,
                   }}
                 >
-                  {t('Close Account')}
+                  <Trans>Close Account</Trans>
                 </Button>
               </View>
             </Form>

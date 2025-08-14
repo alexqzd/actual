@@ -1,11 +1,11 @@
-import { type Dispatch } from 'loot-core/client/actions/types';
-import { pushModal } from 'loot-core/src/client/actions/modals';
-import { send } from 'loot-core/src/platform/client/fetch';
-import { type GoCardlessToken } from 'loot-core/src/types/models';
+import { send } from 'loot-core/platform/client/fetch';
+import { type GoCardlessToken } from 'loot-core/types/models';
+
+import { pushModal } from './modals/modalsSlice';
+import { type AppDispatch } from './redux/store';
 
 function _authorize(
-  dispatch: Dispatch,
-  upgradingAccountId: string | undefined,
+  dispatch: AppDispatch,
   {
     onSuccess,
     onClose,
@@ -15,42 +15,45 @@ function _authorize(
   },
 ) {
   dispatch(
-    pushModal('gocardless-external-msg', {
-      onMoveExternal: async ({ institutionId }) => {
-        const resp = await send('gocardless-create-web-token', {
-          upgradingAccountId,
-          institutionId,
-          accessValidForDays: 90,
-        });
+    pushModal({
+      modal: {
+        name: 'gocardless-external-msg',
+        options: {
+          onMoveExternal: async ({ institutionId }) => {
+            const resp = await send('gocardless-create-web-token', {
+              institutionId,
+              accessValidForDays: 90,
+            });
 
-        if ('error' in resp) return resp;
-        const { link, requisitionId } = resp;
-        window.Actual?.openURLInBrowser(link);
+            if ('error' in resp) return resp;
+            const { link, requisitionId } = resp;
+            window.Actual.openURLInBrowser(link);
 
-        return send('gocardless-poll-web-token', {
-          upgradingAccountId,
-          requisitionId,
-        });
+            return send('gocardless-poll-web-token', {
+              requisitionId,
+            });
+          },
+          onClose,
+          onSuccess,
+        },
       },
-
-      onClose,
-      onSuccess,
     }),
   );
 }
 
-export async function authorizeBank(
-  dispatch: Dispatch,
-  { upgradingAccountId }: { upgradingAccountId?: string } = {},
-) {
-  _authorize(dispatch, upgradingAccountId, {
+export async function authorizeBank(dispatch: AppDispatch) {
+  _authorize(dispatch, {
     onSuccess: async data => {
       dispatch(
-        pushModal('select-linked-accounts', {
-          accounts: data.accounts,
-          requisitionId: data.id,
-          upgradingAccountId,
-          syncSource: 'goCardless',
+        pushModal({
+          modal: {
+            name: 'select-linked-accounts',
+            options: {
+              externalAccounts: data.accounts,
+              requisitionId: data.id,
+              syncSource: 'goCardless',
+            },
+          },
         }),
       );
     },

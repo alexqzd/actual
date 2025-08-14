@@ -1,19 +1,21 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 
-import { unlinkAccount } from 'loot-core/client/actions';
+import { Button } from '@actual-app/components/button';
+import { SvgExclamationOutline } from '@actual-app/components/icons/v1';
+import { Popover } from '@actual-app/components/popover';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
 import { type AccountEntity } from 'loot-core/types/models';
 
-import { authorizeBank } from '../../gocardless';
-import { useAccounts } from '../../hooks/useAccounts';
-import { SvgExclamationOutline } from '../../icons/v1';
-import { theme } from '../../style';
-import { Button } from '../common/Button2';
-import { Link } from '../common/Link';
-import { Popover } from '../common/Popover';
-import { View } from '../common/View';
+import { unlinkAccount } from '@desktop-client/accounts/accountsSlice';
+import { Link } from '@desktop-client/components/common/Link';
+import { authorizeBank } from '@desktop-client/gocardless';
+import { useAccounts } from '@desktop-client/hooks/useAccounts';
+import { useFailedAccounts } from '@desktop-client/hooks/useFailedAccounts';
+import { useDispatch } from '@desktop-client/redux';
 
 function useErrorMessage() {
   const { t } = useTranslation();
@@ -44,6 +46,9 @@ function useErrorMessage() {
       case 'RATE_LIMIT_EXCEEDED':
         return t('Rate limit exceeded for this item. Please try again later.');
 
+      case 'TIMED_OUT':
+        return t('The request timed out. Please try again later.');
+
       case 'INVALID_ACCESS_TOKEN':
         return t(
           'Your SimpleFIN Access Token is no longer valid. Please reset and generate a new token.',
@@ -68,7 +73,7 @@ function useErrorMessage() {
 
     return (
       <Trans>
-        An internal error occurred. Try to login again, or get{' '}
+        An internal error occurred. Try to log in again, or get{' '}
         <Link variant="external" to="https://actualbudget.org/contact/">
           in touch
         </Link>{' '}
@@ -82,7 +87,7 @@ function useErrorMessage() {
 
 export function AccountSyncCheck() {
   const accounts = useAccounts();
-  const failedAccounts = useSelector(state => state.account.failedAccounts);
+  const failedAccounts = useFailedAccounts();
   const dispatch = useDispatch();
   const { id } = useParams();
   const [open, setOpen] = useState(false);
@@ -94,7 +99,7 @@ export function AccountSyncCheck() {
       setOpen(false);
 
       if (acc.account_id) {
-        authorizeBank(dispatch, { upgradingAccountId: acc.account_id });
+        authorizeBank(dispatch);
       }
     },
     [dispatch],
@@ -103,7 +108,7 @@ export function AccountSyncCheck() {
   const unlink = useCallback(
     (acc: AccountEntity) => {
       if (acc.id) {
-        dispatch(unlinkAccount(acc.id));
+        dispatch(unlinkAccount({ id: acc.id }));
       }
 
       setOpen(false);

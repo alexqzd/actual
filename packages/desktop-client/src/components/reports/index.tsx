@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 
-import { View } from '../common/View';
-import { LoadComponent } from '../util/LoadComponent';
+import { View } from '@actual-app/components/view';
+
+import { LoadComponent } from '@desktop-client/components/util/LoadComponent';
 
 export function Reports() {
   const { t } = useTranslation();

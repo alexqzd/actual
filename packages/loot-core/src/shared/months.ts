@@ -1,9 +1,11 @@
 // @ts-strict-ignore
 import * as d from 'date-fns';
+import { Locale } from 'date-fns';
 import memoizeOne from 'memoize-one';
 
-import * as Platform from '../client/platform';
 import { type SyncedPrefs } from '../types/prefs';
+
+import * as Platform from './platform';
 
 type DateLike = string | Date;
 type Day = 0 | 1 | 2 | 3 | 4 | 5 | 6;
@@ -228,6 +230,10 @@ export function isCurrentMonth(month: DateLike): boolean {
   return month === currentMonth();
 }
 
+export function isCurrentDay(day: DateLike): boolean {
+  return day === currentDay();
+}
+
 // TODO: This doesn't really fit in this module anymore, should
 // probably live elsewhere
 export function bounds(month: DateLike): { start: number; end: number } {
@@ -393,12 +399,28 @@ export function sheetForMonth(month: string): string {
   return 'budget' + month.replace('-', '');
 }
 
-export function nameForMonth(month: DateLike): string {
-  return d.format(_parse(month), 'MMMM ‘yy');
+export function nameForMonth(month: DateLike, locale?: Locale): string {
+  return d.format(_parse(month), 'MMMM ‘yy', { locale });
 }
 
-export function format(month: DateLike, format: string): string {
-  return d.format(_parse(month), format);
+export function format(
+  month: DateLike,
+  format: string,
+  locale?: Locale,
+): string {
+  return d.format(_parse(month), format, { locale });
+}
+
+export function formatDistance(
+  date1: DateLike,
+  date2: DateLike,
+  locale?: Locale,
+  options?: { addSuffix?: boolean; includeSeconds?: boolean },
+): string {
+  return d.formatDistance(_parse(date1), _parse(date2), {
+    locale,
+    ...options,
+  });
 }
 
 export const getDateFormatRegex = memoizeOne((format: string) => {

@@ -1,20 +1,26 @@
 import { t } from 'i18next';
 
+import { type sortByOpType } from 'loot-core/types/models';
+
 const intervalOptions = [
   {
     description: t('Daily'),
+    key: 'Daily',
     defaultRange: 'This month',
   },
   {
     description: t('Weekly'),
+    key: 'Weekly',
     defaultRange: 'Last 3 months',
   },
   {
     description: t('Monthly'),
+    key: 'Monthly',
     defaultRange: 'Last 6 months',
   },
   {
     description: t('Yearly'),
+    key: 'Yearly',
     defaultRange: 'Year to date',
   },
 ];
@@ -48,8 +54,10 @@ type graphOptions = {
   defaultSplit: string;
   disabledType: string[];
   defaultType: string;
+  defaultSort: sortByOpType;
   disableLegend?: boolean;
   disableLabel?: boolean;
+  disableSort?: boolean;
 };
 const totalGraphOptions: graphOptions[] = [
   {
@@ -60,6 +68,7 @@ const totalGraphOptions: graphOptions[] = [
     defaultType: 'Payment',
     disableLegend: true,
     disableLabel: true,
+    defaultSort: 'budget',
   },
   {
     description: 'BarGraph',
@@ -67,6 +76,7 @@ const totalGraphOptions: graphOptions[] = [
     defaultSplit: 'Category',
     disabledType: [],
     defaultType: 'Payment',
+    defaultSort: 'desc',
   },
   {
     description: 'AreaGraph',
@@ -75,6 +85,8 @@ const totalGraphOptions: graphOptions[] = [
     disabledType: [],
     defaultType: 'Payment',
     disableLegend: true,
+    disableSort: true,
+    defaultSort: 'desc',
   },
   {
     description: 'DonutGraph',
@@ -82,6 +94,7 @@ const totalGraphOptions: graphOptions[] = [
     defaultSplit: 'Category',
     disabledType: ['Net'],
     defaultType: 'Payment',
+    defaultSort: 'desc',
   },
 ];
 
@@ -94,6 +107,8 @@ const timeGraphOptions: graphOptions[] = [
     defaultType: 'Payment',
     disableLegend: true,
     disableLabel: true,
+    disableSort: true,
+    defaultSort: 'desc',
   },
   {
     description: 'StackedBarGraph',
@@ -101,6 +116,8 @@ const timeGraphOptions: graphOptions[] = [
     defaultSplit: 'Category',
     disabledType: [],
     defaultType: 'Payment',
+    disableSort: true,
+    defaultSort: 'desc',
   },
   {
     description: 'LineGraph',
@@ -110,6 +127,8 @@ const timeGraphOptions: graphOptions[] = [
     defaultType: 'Payment',
     disableLegend: false,
     disableLabel: true,
+    disableSort: true,
+    defaultSort: 'desc',
   },
 ];
 
@@ -169,7 +188,7 @@ export function disabledLegendLabel(
 export function defaultsGraphList(
   item: string,
   newGraph: string,
-  type: 'defaultSplit' | 'defaultType',
+  type: 'defaultSplit' | 'defaultType' | 'defaultSort',
 ) {
   const graphList = modeOptions.find(d => d.description === item);
   if (!graphList) {
@@ -200,6 +219,6 @@ export const defaultsList = {
     modeOptions.map(item => [item.description, item.defaultGraph]),
   ),
   intervalRange: new Map(
-    intervalOptions.map(item => [item.description, item.defaultRange]),
+    intervalOptions.map(item => [item.key, item.defaultRange]),
   ),
 };

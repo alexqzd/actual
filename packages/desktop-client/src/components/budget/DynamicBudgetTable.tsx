@@ -3,16 +3,18 @@ import React, { useEffect, type ComponentProps } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import AutoSizer from 'react-virtualized-auto-sizer';
 
-import * as monthUtils from 'loot-core/src/shared/months';
+import { View } from '@actual-app/components/view';
 
-import { View } from '../common/View';
+import * as monthUtils from 'loot-core/shared/months';
 
 import { useBudgetMonthCount } from './BudgetMonthCountContext';
 import { BudgetPageHeader } from './BudgetPageHeader';
 import { BudgetTable } from './BudgetTable';
 
-function getNumPossibleMonths(width: number) {
-  const estimatedTableWidth = width - 200;
+import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
+
+function getNumPossibleMonths(width: number, categoryWidth: number) {
+  const estimatedTableWidth = width - categoryWidth;
 
   if (estimatedTableWidth < 500) {
     return 1;
@@ -46,10 +48,15 @@ const DynamicBudgetTableInner = ({
   ...props
 }: DynamicBudgetTableInnerProps) => {
   const { setDisplayMax } = useBudgetMonthCount();
+  const [categoryExpandedStatePref] = useGlobalPref('categoryExpandedState');
+  const categoryExpandedState = categoryExpandedStatePref ?? 0;
 
-  const numPossible = getNumPossibleMonths(width);
+  const numPossible = getNumPossibleMonths(
+    width,
+    200 + 100 * categoryExpandedState,
+  );
   const numMonths = Math.min(numPossible, maxMonths);
-  const maxWidth = 200 + 500 * numMonths;
+  const maxWidth = 200 + 100 * categoryExpandedState + 500 * numMonths;
 
   useEffect(() => {
     setDisplayMax(numPossible);
@@ -99,7 +106,7 @@ const DynamicBudgetTableInner = ({
       _onMonthSelect(
         monthUtils.subMonths(
           monthUtils.currentMonth(),
-          type === 'rollover'
+          type === 'envelope'
             ? Math.floor((numMonths - 1) / 2)
             : numMonths === 2
               ? 1

@@ -1,4 +1,4 @@
-import * as monthUtils from 'loot-core/src/shared/months';
+import * as monthUtils from 'loot-core/shared/months';
 import { type TimeFrame } from 'loot-core/types/models';
 import { type SyncedPrefs } from 'loot-core/types/prefs';
 
@@ -195,6 +195,20 @@ export function calculateTimeRange(
     }
 
     return getLatestRange(offset);
+  }
+  if (mode === 'lastYear') {
+    return [
+      monthUtils.getYearStart(monthUtils.prevYear(monthUtils.currentMonth())),
+      monthUtils.getYearEnd(monthUtils.prevYear(monthUtils.currentDate())),
+      'lastYear',
+    ] as const;
+  }
+  if (mode === 'yearToDate') {
+    return [
+      monthUtils.currentYear() + '-01',
+      monthUtils.currentMonth(),
+      'yearToDate',
+    ] as const;
   }
 
   return [start, end, 'static'] as const;

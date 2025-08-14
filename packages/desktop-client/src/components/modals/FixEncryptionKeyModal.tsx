@@ -1,37 +1,40 @@
 // @ts-strict-ignore
 import React, { useState } from 'react';
 import { Form } from 'react-aria-components';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 
-import { type FinanceModals } from 'loot-core/src/client/state-types/modals';
-import { send } from 'loot-core/src/platform/client/fetch';
-import { getTestKeyError } from 'loot-core/src/shared/errors';
+import { Button, ButtonWithLoading } from '@actual-app/components/button';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { InitialFocus } from '@actual-app/components/initial-focus';
+import { Input } from '@actual-app/components/input';
+import { Paragraph } from '@actual-app/components/paragraph';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { styles, theme } from '../../style';
-import { Button, ButtonWithLoading } from '../common/Button2';
-import { InitialFocus } from '../common/InitialFocus';
-import { Input } from '../common/Input';
-import { Link } from '../common/Link';
+import { send } from 'loot-core/platform/client/fetch';
+import { getTestKeyError } from 'loot-core/shared/errors';
+
+import { Link } from '@desktop-client/components/common/Link';
 import {
   Modal,
   ModalButtons,
   ModalCloseButton,
   ModalHeader,
-} from '../common/Modal';
-import { Paragraph } from '../common/Paragraph';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { useResponsive } from '../responsive/ResponsiveProvider';
+} from '@desktop-client/components/common/Modal';
+import { type Modal as ModalType } from '@desktop-client/modals/modalsSlice';
 
-type FixEncryptionKeyModalProps = {
-  options: FinanceModals['fix-encryption-key'];
-};
+type FixEncryptionKeyModalProps = Extract<
+  ModalType,
+  { name: 'fix-encryption-key' }
+>['options'];
 
 export function FixEncryptionKeyModal({
-  options = {},
+  cloudFileId,
+  hasExistingKey,
+  onSuccess,
 }: FixEncryptionKeyModalProps) {
-  const { hasExistingKey, cloudFileId, onSuccess } = options;
-
   const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -46,7 +49,7 @@ export function FixEncryptionKeyModal({
 
       const { error } = await send('key-test', {
         password,
-        fileId: cloudFileId,
+        cloudFileId,
       });
       if (error) {
         setError(getTestKeyError(error));
@@ -88,7 +91,7 @@ export function FixEncryptionKeyModal({
                   variant="external"
                   to="https://actualbudget.org/docs/getting-started/sync/#end-to-end-encryption"
                 >
-                  {t('Learn more')}
+                  <Trans>Learn more</Trans>
                 </Link>
               </Paragraph>
             ) : (
@@ -100,7 +103,7 @@ export function FixEncryptionKeyModal({
                   variant="external"
                   to="https://actualbudget.org/docs/getting-started/sync/#end-to-end-encryption"
                 >
-                  {t('Learn more')}
+                  <Trans>Learn more</Trans>
                 </Link>
               </Paragraph>
             )}
@@ -119,7 +122,7 @@ export function FixEncryptionKeyModal({
               }}
             >
               <Text style={{ fontWeight: 600, marginBottom: 5 }}>
-                {t('Password')}
+                <Trans>Password</Trans>
               </Text>{' '}
               {error && (
                 <View
@@ -140,7 +143,7 @@ export function FixEncryptionKeyModal({
                     width: isNarrowWidth ? '100%' : '50%',
                     height: isNarrowWidth ? styles.mobileMinHeight : undefined,
                   }}
-                  onChange={e => setPassword(e.target.value)}
+                  onChangeValue={setPassword}
                 />
               </InitialFocus>
               <Text style={{ marginTop: 5 }}>
@@ -149,7 +152,7 @@ export function FixEncryptionKeyModal({
                     type="checkbox"
                     onClick={() => setShowPassword(!showPassword)}
                   />{' '}
-                  {t('Show password')}
+                  <Trans>Show password</Trans>
                 </label>
               </Text>
             </View>
@@ -163,7 +166,7 @@ export function FixEncryptionKeyModal({
                 }}
                 onPress={close}
               >
-                {t('Back')}
+                <Trans>Back</Trans>
               </Button>
               <ButtonWithLoading
                 type="submit"

@@ -5,27 +5,14 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useTranslation } from 'react-i18next';
 
-import {
-  collapseModals,
-  getPayees,
-  markAccountRead,
-  openAccountCloseModal,
-  pushModal,
-  reopenAccount,
-  syncAndDownload,
-  updateAccount,
-} from 'loot-core/client/actions';
-import {
-  accountSchedulesQuery,
-  SchedulesProvider,
-} from 'loot-core/client/data-hooks/schedules';
-import {
-  useTransactions,
-  useTransactionsSearch,
-} from 'loot-core/client/data-hooks/transactions';
-import * as queries from 'loot-core/client/queries';
+import { Button } from '@actual-app/components/button';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
 import { listen, send } from 'loot-core/platform/client/fetch';
 import { type Query } from 'loot-core/shared/query';
 import { isPreviewId } from 'loot-core/shared/transactions';
@@ -34,18 +21,32 @@ import {
   type TransactionEntity,
 } from 'loot-core/types/models';
 
-import { useAccountPreviewTransactions } from '../../../hooks/useAccountPreviewTransactions';
-import { useDateFormat } from '../../../hooks/useDateFormat';
-import { useFailedAccounts } from '../../../hooks/useFailedAccounts';
-import { useNavigate } from '../../../hooks/useNavigate';
-import { styles, theme } from '../../../style';
-import { Button } from '../../common/Button2';
-import { Text } from '../../common/Text';
-import { View } from '../../common/View';
-import { MobilePageHeader, Page } from '../../Page';
-import { MobileBackButton } from '../MobileBackButton';
-import { AddTransactionButton } from '../transactions/AddTransactionButton';
-import { TransactionListWithBalances } from '../transactions/TransactionListWithBalances';
+import { syncAndDownload } from '@desktop-client/app/appSlice';
+import { MobileBackButton } from '@desktop-client/components/mobile/MobileBackButton';
+import { AddTransactionButton } from '@desktop-client/components/mobile/transactions/AddTransactionButton';
+import { TransactionListWithBalances } from '@desktop-client/components/mobile/transactions/TransactionListWithBalances';
+import { MobilePageHeader, Page } from '@desktop-client/components/Page';
+import { useAccountPreviewTransactions } from '@desktop-client/hooks/useAccountPreviewTransactions';
+import { SchedulesProvider } from '@desktop-client/hooks/useCachedSchedules';
+import { useDateFormat } from '@desktop-client/hooks/useDateFormat';
+import { useFailedAccounts } from '@desktop-client/hooks/useFailedAccounts';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { accountSchedulesQuery } from '@desktop-client/hooks/useSchedules';
+import { useTransactions } from '@desktop-client/hooks/useTransactions';
+import { useTransactionsSearch } from '@desktop-client/hooks/useTransactionsSearch';
+import {
+  collapseModals,
+  openAccountCloseModal,
+  pushModal,
+} from '@desktop-client/modals/modalsSlice';
+import * as queries from '@desktop-client/queries';
+import {
+  markAccountRead,
+  reopenAccount,
+  updateAccount,
+} from '@desktop-client/queries/queriesSlice';
+import { useSelector, useDispatch } from '@desktop-client/redux';
+import * as bindings from '@desktop-client/spreadsheet/bindings';
 
 export function AccountTransactions({
   account,
@@ -57,6 +58,7 @@ export function AccountTransactions({
     | AccountEntity['id']
     | 'onbudget'
     | 'offbudget'
+    | 'closed'
     | 'uncategorized';
   readonly accountName: string;
 }) {
@@ -111,7 +113,7 @@ function AccountHeader({ account }: { readonly account: AccountEntity }) {
 
   const onSave = useCallback(
     (account: AccountEntity) => {
-      dispatch(updateAccount(account));
+      dispatch(updateAccount({ account }));
     },
     [dispatch],
   );
@@ -123,10 +125,15 @@ function AccountHeader({ account }: { readonly account: AccountEntity }) {
   const onEditNotes = useCallback(
     (id: string) => {
       dispatch(
-        pushModal('notes', {
-          id: `account-${id}`,
-          name: account.name,
-          onSave: onSaveNotes,
+        pushModal({
+          modal: {
+            name: 'notes',
+            options: {
+              id: `account-${id}`,
+              name: account.name,
+              onSave: onSaveNotes,
+            },
+          },
         }),
       );
     },
@@ -134,21 +141,26 @@ function AccountHeader({ account }: { readonly account: AccountEntity }) {
   );
 
   const onCloseAccount = useCallback(() => {
-    dispatch(openAccountCloseModal(account.id));
+    dispatch(openAccountCloseModal({ accountId: account.id }));
   }, [account.id, dispatch]);
 
   const onReopenAccount = useCallback(() => {
-    dispatch(reopenAccount(account.id));
+    dispatch(reopenAccount({ id: account.id }));
   }, [account.id, dispatch]);
 
   const onClick = useCallback(() => {
     dispatch(
-      pushModal('account-menu', {
-        accountId: account.id,
-        onSave,
-        onEditNotes,
-        onCloseAccount,
-        onReopenAccount,
+      pushModal({
+        modal: {
+          name: 'account-menu',
+          options: {
+            accountId: account.id,
+            onSave,
+            onEditNotes,
+            onCloseAccount,
+            onReopenAccount,
+          },
+        },
       }),
     );
   }, [
@@ -224,12 +236,14 @@ function TransactionListWithPreviews({
     | AccountEntity['id']
     | 'onbudget'
     | 'offbudget'
+    | 'closed'
     | 'uncategorized';
   readonly accountName: AccountEntity['name'] | string;
 }) {
+  const { t } = useTranslation();
   const baseTransactionsQuery = useCallback(
     () =>
-      queries.transactions(accountId).options({ splits: 'none' }).select('*'),
+      queries.transactions(accountId).options({ splits: 'all' }).select('*'),
     [accountId],
   );
 
@@ -238,7 +252,7 @@ function TransactionListWithPreviews({
   );
   const {
     transactions,
-    isLoading,
+    isLoading: isTransactionsLoading,
     reload: reloadTransactions,
     isLoadingMore,
     loadMore: loadMoreTransactions,
@@ -246,9 +260,10 @@ function TransactionListWithPreviews({
     query: transactionsQuery,
   });
 
-  const { previewTransactions } = useAccountPreviewTransactions({
-    accountId: account?.id || '',
-  });
+  const { previewTransactions, isLoading: isPreviewTransactionsLoading } =
+    useAccountPreviewTransactions({
+      accountId: account?.id,
+    });
 
   const dateFormat = useDateFormat() || 'MM/dd/yyyy';
   const dispatch = useDispatch();
@@ -256,29 +271,26 @@ function TransactionListWithPreviews({
 
   const onRefresh = useCallback(() => {
     if (accountId) {
-      dispatch(syncAndDownload(accountId));
+      dispatch(syncAndDownload({ accountId }));
     }
   }, [accountId, dispatch]);
 
   useEffect(() => {
     if (accountId) {
-      dispatch(markAccountRead(accountId));
+      dispatch(markAccountRead({ id: accountId }));
     }
   }, [accountId, dispatch]);
 
   useEffect(() => {
-    return listen('sync-event', ({ type, tables }) => {
-      if (type === 'applied') {
+    return listen('sync-event', event => {
+      if (event.type === 'applied') {
+        const tables = event.tables;
         if (
           tables.includes('transactions') ||
           tables.includes('category_mapping') ||
           tables.includes('payee_mapping')
         ) {
           reloadTransactions();
-        }
-
-        if (tables.includes('payees') || tables.includes('payee_mapping')) {
-          dispatch(getPayees());
         }
       }
     });
@@ -296,17 +308,44 @@ function TransactionListWithPreviews({
         navigate(`/transactions/${transaction.id}`);
       } else {
         dispatch(
-          pushModal('scheduled-transaction-menu', {
-            transactionId: transaction.id,
-            onPost: async transactionId => {
-              const parts = transactionId.split('/');
-              await send('schedule/post-transaction', { id: parts[1] });
-              dispatch(collapseModals('scheduled-transaction-menu'));
-            },
-            onSkip: async transactionId => {
-              const parts = transactionId.split('/');
-              await send('schedule/skip-next-date', { id: parts[1] });
-              dispatch(collapseModals('scheduled-transaction-menu'));
+          pushModal({
+            modal: {
+              name: 'scheduled-transaction-menu',
+              options: {
+                transactionId: transaction.id,
+                onPost: async (transactionId, today = false) => {
+                  const parts = transactionId.split('/');
+                  await send('schedule/post-transaction', {
+                    id: parts[1],
+                    today,
+                  });
+                  dispatch(
+                    collapseModals({
+                      rootModalName: 'scheduled-transaction-menu',
+                    }),
+                  );
+                },
+                onSkip: async transactionId => {
+                  const parts = transactionId.split('/');
+                  await send('schedule/skip-next-date', { id: parts[1] });
+                  dispatch(
+                    collapseModals({
+                      rootModalName: 'scheduled-transaction-menu',
+                    }),
+                  );
+                },
+                onComplete: async transactionId => {
+                  const parts = transactionId.split('/');
+                  await send('schedule/update', {
+                    schedule: { id: parts[1], completed: true },
+                  });
+                  dispatch(
+                    collapseModals({
+                      rootModalName: 'scheduled-transaction-menu',
+                    }),
+                  );
+                },
+              },
             },
           }),
         );
@@ -321,22 +360,26 @@ function TransactionListWithPreviews({
   );
 
   const transactionsToDisplay = !isSearching
-    ? previewTransactions.concat(transactions)
+    ? // Do not render child transactions in the list, unless searching
+      previewTransactions.concat(transactions.filter(t => !t.is_child))
     : transactions;
 
   return (
     <TransactionListWithBalances
-      isLoading={isLoading}
+      isLoading={
+        isSearching ? isTransactionsLoading : isPreviewTransactionsLoading
+      }
       transactions={transactionsToDisplay}
       balance={balanceQueries.balance}
       balanceCleared={balanceQueries.cleared}
       balanceUncleared={balanceQueries.uncleared}
       isLoadingMore={isLoadingMore}
       onLoadMore={loadMoreTransactions}
-      searchPlaceholder={`Search ${accountName}`}
+      searchPlaceholder={t('Search {{accountName}}', { accountName })}
       onSearch={onSearch}
       onOpenTransaction={onOpenTransaction}
       onRefresh={onRefresh}
+      account={account}
     />
   );
 }
@@ -348,23 +391,27 @@ function queriesFromAccountId(
   switch (id) {
     case 'onbudget':
       return {
-        balance: queries.onBudgetAccountBalance(),
+        balance: bindings.onBudgetAccountBalance(),
       };
     case 'offbudget':
       return {
-        balance: queries.offBudgetAccountBalance(),
+        balance: bindings.offBudgetAccountBalance(),
+      };
+    case 'closed':
+      return {
+        balance: bindings.closedAccountBalance(),
       };
     case 'uncategorized':
       return {
-        balance: queries.uncategorizedBalance(),
+        balance: bindings.uncategorizedBalance(),
       };
     default:
       return entity
         ? {
-            balance: queries.accountBalance(entity),
-            cleared: queries.accountBalanceCleared(entity),
-            uncleared: queries.accountBalanceUncleared(entity),
+            balance: bindings.accountBalance(entity.id),
+            cleared: bindings.accountBalanceCleared(entity.id),
+            uncleared: bindings.accountBalanceUncleared(entity.id),
           }
-        : { balance: queries.allAccountBalance() };
+        : { balance: bindings.allAccountBalance() };
   }
 }

@@ -1,26 +1,29 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { integerToCurrency } from 'loot-core/src/shared/util';
+import { Block } from '@actual-app/components/block';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { styles } from '@actual-app/components/styles';
+import { View } from '@actual-app/components/view';
+
+import { integerToCurrency } from 'loot-core/shared/util';
 import {
   type AccountEntity,
   type NetWorthWidget,
-} from 'loot-core/src/types/models';
+} from 'loot-core/types/models';
 
-import { styles } from '../../../style';
-import { Block } from '../../common/Block';
-import { View } from '../../common/View';
-import { PrivacyFilter } from '../../PrivacyFilter';
-import { useResponsive } from '../../responsive/ResponsiveProvider';
-import { Change } from '../Change';
-import { DateRange } from '../DateRange';
-import { NetWorthGraph } from '../graphs/NetWorthGraph';
-import { LoadingIndicator } from '../LoadingIndicator';
-import { ReportCard } from '../ReportCard';
-import { ReportCardName } from '../ReportCardName';
-import { calculateTimeRange } from '../reportRanges';
-import { createSpreadsheet as netWorthSpreadsheet } from '../spreadsheets/net-worth-spreadsheet';
-import { useReport } from '../useReport';
+import { PrivacyFilter } from '@desktop-client/components/PrivacyFilter';
+import { Change } from '@desktop-client/components/reports/Change';
+import { DateRange } from '@desktop-client/components/reports/DateRange';
+import { NetWorthGraph } from '@desktop-client/components/reports/graphs/NetWorthGraph';
+import { LoadingIndicator } from '@desktop-client/components/reports/LoadingIndicator';
+import { ReportCard } from '@desktop-client/components/reports/ReportCard';
+import { ReportCardName } from '@desktop-client/components/reports/ReportCardName';
+import { calculateTimeRange } from '@desktop-client/components/reports/reportRanges';
+import { createSpreadsheet as netWorthSpreadsheet } from '@desktop-client/components/reports/spreadsheets/net-worth-spreadsheet';
+import { useReport } from '@desktop-client/components/reports/useReport';
+import { useLocale } from '@desktop-client/hooks/useLocale';
+import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
 
 type NetWorthCardProps = {
   widgetId: string;
@@ -39,8 +42,11 @@ export function NetWorthCard({
   onMetaChange,
   onRemove,
 }: NetWorthCardProps) {
+  const locale = useLocale();
   const { t } = useTranslation();
   const { isNarrowWidth } = useResponsive();
+  const [_firstDayOfWeekIdx] = useSyncedPref('firstDayOfWeekIdx');
+  const firstDayOfWeekIdx = _firstDayOfWeekIdx || '0';
 
   const [nameMenuOpen, setNameMenuOpen] = useState(false);
 
@@ -57,8 +63,20 @@ export function NetWorthCard({
         accounts,
         meta?.conditions,
         meta?.conditionsOp,
+        locale,
+        meta?.interval || 'Monthly',
+        firstDayOfWeekIdx,
       ),
-    [start, end, accounts, meta?.conditions, meta?.conditionsOp],
+    [
+      start,
+      end,
+      accounts,
+      meta?.conditions,
+      meta?.conditionsOp,
+      locale,
+      meta?.interval,
+      firstDayOfWeekIdx,
+    ],
   );
   const data = useReport('net_worth', params);
 
@@ -136,6 +154,7 @@ export function NetWorthCard({
             graphData={data.graphData}
             compact={true}
             showTooltip={!isEditing && !isNarrowWidth}
+            interval={meta?.interval || 'Monthly'}
             style={{ height: 'auto', flex: 1 }}
           />
         ) : (

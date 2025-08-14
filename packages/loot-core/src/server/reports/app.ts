@@ -11,8 +11,6 @@ import { requiredFields } from '../models';
 import { mutator } from '../mutators';
 import { undoable } from '../undo';
 
-import { ReportsHandlers } from './types/handlers';
-
 export const reportModel = {
   validate(
     report: Omit<CustomReportEntity, 'tombstone'>,
@@ -41,6 +39,7 @@ export const reportModel = {
       dateRange: row.date_range,
       mode: row.mode,
       groupBy: row.group_by,
+      sortBy: row.sort_by,
       interval: row.interval,
       balanceType: row.balance_type,
       showEmpty: row.show_empty === 1,
@@ -64,6 +63,7 @@ export const reportModel = {
       date_range: report.dateRange,
       mode: report.mode,
       group_by: report.groupBy,
+      sort_by: report.sortBy,
       interval: report.interval,
       balance_type: report.balanceType,
       show_empty: report.showEmpty ? 1 : 0,
@@ -83,7 +83,7 @@ async function reportNameExists(
   reportId: string,
   newItem: boolean,
 ) {
-  const idForName: { id: string } = await db.first(
+  const idForName = await db.first<Pick<db.DbCustomReport, 'id'>>(
     'SELECT id from custom_reports WHERE tombstone = 0 AND name = ?',
     [name],
   );
@@ -96,7 +96,7 @@ async function reportNameExists(
   //for update/rename
   if (!newItem) {
     /*
-    -if the found item is the same as the existing item 
+    -if the found item is the same as the existing item
     then no name change was made.
     -if they are not the same then there is another
     item with that name already.
@@ -146,9 +146,15 @@ async function updateReport(item: CustomReportEntity) {
   await db.updateWithSchema('custom_reports', reportModel.fromJS(item));
 }
 
-async function deleteReport(id: string) {
+async function deleteReport(id: CustomReportEntity['id']) {
   await db.delete_('custom_reports', id);
 }
+
+export type ReportsHandlers = {
+  'report/create': typeof createReport;
+  'report/update': typeof updateReport;
+  'report/delete': typeof deleteReport;
+};
 
 // Expose functions to the client
 export const app = createApp<ReportsHandlers>();

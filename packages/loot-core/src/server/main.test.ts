@@ -1,5 +1,6 @@
 // @ts-strict-ignore
 import { getClock, deserializeClock } from '@actual-app/crdt';
+import { v4 as uuidv4 } from 'uuid';
 
 import { expectSnapshotWithDiffer } from '../mocks/util';
 import * as connection from '../platform/server/connection';
@@ -19,7 +20,7 @@ import {
 import * as prefs from './prefs';
 import * as sheet from './sheet';
 
-jest.mock('./post');
+vi.mock('./post');
 
 beforeEach(async () => {
   await global.emptyDatabase()();
@@ -67,7 +68,9 @@ describe('Budgets', () => {
 
     // Grab the clock to compare later
     await db.openDatabase('test-budget');
-    const row = await db.first('SELECT * FROM messages_clock');
+    const row = await db.first<db.DbClockMessage>(
+      'SELECT * FROM messages_clock',
+    );
 
     const { error } = await runHandler(handlers['load-budget'], {
       id: 'test-budget',
@@ -87,7 +90,7 @@ describe('Budgets', () => {
     await db.openDatabase('test-budget');
     await db.runQuery('INSERT INTO __migrations__ (id) VALUES (1000)');
 
-    const spy = jest.spyOn(console, 'warn').mockImplementation();
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => null);
 
     const { error } = await runHandler(handlers['load-budget'], {
       id: 'test-budget',
@@ -133,7 +136,7 @@ describe('Accounts', () => {
       date: '2017-01-01',
     });
     const differ = expectSnapshotWithDiffer(
-      await db.all('SELECT * FROM transactions'),
+      await db.all<db.DbTransaction>('SELECT * FROM transactions'),
     );
 
     let transaction = await db.getTransaction(id);
@@ -142,11 +145,15 @@ describe('Accounts', () => {
       payee: 'transfer-three',
       date: '2017-01-03',
     });
-    differ.expectToMatchDiff(await db.all('SELECT * FROM transactions'));
+    differ.expectToMatchDiff(
+      await db.all<db.DbTransaction>('SELECT * FROM transactions'),
+    );
 
     transaction = await db.getTransaction(id);
     await runHandler(handlers['transaction-delete'], transaction);
-    differ.expectToMatchDiff(await db.all('SELECT * FROM transactions'));
+    differ.expectToMatchDiff(
+      await db.all<db.DbTransaction>('SELECT * FROM transactions'),
+    );
   });
 });
 
@@ -175,6 +182,7 @@ describe('Budget', () => {
     // budgets for the earlier months
     await db.runQuery("INSERT INTO accounts (id, name) VALUES ('one', 'boa')");
     await runHandler(handlers['transaction-add'], {
+      id: uuidv4(),
       date: '2016-05-06',
       amount: 50,
       account: 'one',

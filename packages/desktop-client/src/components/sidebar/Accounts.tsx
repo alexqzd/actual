@@ -1,24 +1,24 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
 
-import { moveAccount } from 'loot-core/src/client/actions';
-import * as queries from 'loot-core/src/client/queries';
-import { type State } from 'loot-core/src/client/state-types';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
 import { type AccountEntity } from 'loot-core/types/models';
-
-import { useAccounts } from '../../hooks/useAccounts';
-import { useClosedAccounts } from '../../hooks/useClosedAccounts';
-import { useFailedAccounts } from '../../hooks/useFailedAccounts';
-import { useLocalPref } from '../../hooks/useLocalPref';
-import { useOffBudgetAccounts } from '../../hooks/useOffBudgetAccounts';
-import { useOnBudgetAccounts } from '../../hooks/useOnBudgetAccounts';
-import { useUpdatedAccounts } from '../../hooks/useUpdatedAccounts';
-import { theme } from '../../style';
-import { View } from '../common/View';
 
 import { Account } from './Account';
 import { SecondaryItem } from './SecondaryItem';
+
+import { moveAccount } from '@desktop-client/accounts/accountsSlice';
+import { useAccounts } from '@desktop-client/hooks/useAccounts';
+import { useClosedAccounts } from '@desktop-client/hooks/useClosedAccounts';
+import { useFailedAccounts } from '@desktop-client/hooks/useFailedAccounts';
+import { useLocalPref } from '@desktop-client/hooks/useLocalPref';
+import { useOffBudgetAccounts } from '@desktop-client/hooks/useOffBudgetAccounts';
+import { useOnBudgetAccounts } from '@desktop-client/hooks/useOnBudgetAccounts';
+import { useUpdatedAccounts } from '@desktop-client/hooks/useUpdatedAccounts';
+import { useSelector, useDispatch } from '@desktop-client/redux';
+import * as bindings from '@desktop-client/spreadsheet/bindings';
 
 const fontWeight = 600;
 
@@ -32,9 +32,7 @@ export function Accounts() {
   const offbudgetAccounts = useOffBudgetAccounts();
   const onBudgetAccounts = useOnBudgetAccounts();
   const closedAccounts = useClosedAccounts();
-  const syncingAccountIds = useSelector(
-    (state: State) => state.account.accountsSyncing,
-  );
+  const syncingAccountIds = useSelector(state => state.account.accountsSyncing);
 
   const getAccountPath = (account: AccountEntity) => `/accounts/${account.id}`;
 
@@ -67,7 +65,7 @@ export function Accounts() {
       targetIdToMove = idx < accounts.length ? accounts[idx].id : null;
     }
 
-    dispatch(moveAccount(id, targetIdToMove));
+    dispatch(moveAccount({ id, targetId: targetIdToMove as string }));
   }
 
   const onToggleClosedAccounts = () => {
@@ -96,7 +94,7 @@ export function Accounts() {
         <Account
           name={t('All accounts')}
           to="/accounts"
-          query={queries.allAccountBalance()}
+          query={bindings.allAccountBalance()}
           style={{ fontWeight, marginTop: 15 }}
         />
 
@@ -104,12 +102,13 @@ export function Accounts() {
           <Account
             name={t('On budget')}
             to="/accounts/onbudget"
-            query={queries.onBudgetAccountBalance()}
+            query={bindings.onBudgetAccountBalance()}
             style={{
               fontWeight,
               marginTop: 13,
               marginBottom: 5,
             }}
+            titleAccount={true}
           />
         )}
 
@@ -120,10 +119,10 @@ export function Accounts() {
             account={account}
             connected={!!account.bank}
             pending={syncingAccountIds.includes(account.id)}
-            failed={failedAccounts?.has(account.id)}
-            updated={updatedAccounts?.includes(account.id)}
+            failed={failedAccounts.has(account.id)}
+            updated={updatedAccounts.includes(account.id)}
             to={getAccountPath(account)}
-            query={queries.accountBalance(account)}
+            query={bindings.accountBalance(account.id)}
             onDragChange={onDragChange}
             onDrop={onReorder}
             outerStyle={makeDropPadding(i)}
@@ -134,12 +133,13 @@ export function Accounts() {
           <Account
             name={t('Off budget')}
             to="/accounts/offbudget"
-            query={queries.offBudgetAccountBalance()}
+            query={bindings.offBudgetAccountBalance()}
             style={{
               fontWeight,
               marginTop: 13,
               marginBottom: 5,
             }}
+            titleAccount={true}
           />
         )}
 
@@ -150,10 +150,10 @@ export function Accounts() {
             account={account}
             connected={!!account.bank}
             pending={syncingAccountIds.includes(account.id)}
-            failed={failedAccounts?.has(account.id)}
-            updated={updatedAccounts?.includes(account.id)}
+            failed={failedAccounts.has(account.id)}
+            updated={updatedAccounts.includes(account.id)}
             to={getAccountPath(account)}
-            query={queries.accountBalance(account)}
+            query={bindings.accountBalance(account.id)}
             onDragChange={onDragChange}
             onDrop={onReorder}
             outerStyle={makeDropPadding(i)}
@@ -180,7 +180,7 @@ export function Accounts() {
               name={account.name}
               account={account}
               to={getAccountPath(account)}
-              query={queries.accountBalance(account)}
+              query={bindings.accountBalance(account.id)}
               onDragChange={onDragChange}
               onDrop={onReorder}
             />

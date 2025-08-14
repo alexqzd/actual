@@ -1,25 +1,29 @@
 import React, { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch, useSelector } from 'react-redux';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 
-import { closeBudget, getUserData, signOut } from 'loot-core/client/actions';
-import { type State } from 'loot-core/src/client/state-types';
+import { Button } from '@actual-app/components/button';
+import { Menu } from '@actual-app/components/menu';
+import { Popover } from '@actual-app/components/popover';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
+import { listen } from 'loot-core/platform/client/fetch';
 import { type RemoteFile, type SyncedLocalFile } from 'loot-core/types/file';
+import { type TransObjectLiteral } from 'loot-core/types/util';
 
-import { useAuth } from '../auth/AuthProvider';
-import { Permissions } from '../auth/types';
-import { useMetadataPref } from '../hooks/useMetadataPref';
-import { useNavigate } from '../hooks/useNavigate';
-import { theme, styles } from '../style';
-
-import { Button } from './common/Button2';
-import { Menu } from './common/Menu';
-import { Popover } from './common/Popover';
-import { Text } from './common/Text';
-import { View } from './common/View';
 import { PrivacyFilter } from './PrivacyFilter';
 import { useMultiuserEnabled, useServerURL } from './ServerContext';
+
+import { useAuth } from '@desktop-client/auth/AuthProvider';
+import { Permissions } from '@desktop-client/auth/types';
+import { closeBudget } from '@desktop-client/budgets/budgetsSlice';
+import { useMetadataPref } from '@desktop-client/hooks/useMetadataPref';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { useSelector, useDispatch } from '@desktop-client/redux';
+import { getUserData, signOut } from '@desktop-client/users/usersSlice';
 
 type LoggedInUserProps = {
   hideIfNoServer?: boolean;
@@ -35,7 +39,7 @@ export function LoggedInUser({
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const userData = useSelector((state: State) => state.user.data);
+  const userData = useSelector(state => state.user.data);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const serverUrl = useServerURL();
@@ -50,15 +54,42 @@ export function LoggedInUser({
     f => f.state === 'remote' || f.state === 'synced' || f.state === 'detached',
   ) as (SyncedLocalFile | RemoteFile)[];
   const currentFile = remoteFiles.find(f => f.cloudFileId === cloudFileId);
-  const hasSyncedPrefs = useSelector((state: State) => state.prefs.synced);
+  const hasSyncedPrefs = useSelector(state => state.prefs.synced);
+
+  const initializeUserData = async () => {
+    try {
+      await dispatch(getUserData());
+    } catch (error) {
+      console.error('Failed to initialize user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function init() {
-      await dispatch(getUserData());
-    }
-
-    init().then(() => setLoading(false));
+    initializeUserData();
   }, []);
+
+  useEffect(() => {
+    return listen('sync-event', ({ type }) => {
+      if (type === 'start') {
+        setLoading(true);
+
+        return;
+      }
+
+      const shouldReinitialize =
+        userData &&
+        ((type === 'success' && userData.offline) ||
+          (type === 'error' && !userData.offline));
+
+      if (shouldReinitialize) {
+        initializeUserData();
+      } else {
+        setLoading(false);
+      }
+    });
+  }, [userData]);
 
   async function onCloseBudget() {
     await dispatch(closeBudget());
@@ -205,9 +236,14 @@ export function LoggedInUser({
         userData?.displayName &&
         !hasSyncedPrefs && (
           <small>
+            (
             <Trans>
-              (logged in as: <span>{userData?.displayName}</span>)
+              logged in as:{' '}
+              <span>
+                {{ userName: userData?.displayName } as TransObjectLiteral}
+              </span>
             </Trans>
+            )
           </small>
         )}
       {!loading &&
@@ -216,13 +252,16 @@ export function LoggedInUser({
         userData?.displayName &&
         hasSyncedPrefs && (
           <small>
+            (
             <Trans>
-              (logged in as:{' '}
+              logged in as:{' '}
               <span>
-                <PrivacyFilter>{userData?.displayName}</PrivacyFilter>
+                <PrivacyFilter>
+                  {{ userName: userData?.displayName } as TransObjectLiteral}
+                </PrivacyFilter>
               </span>
-              )
             </Trans>
+            )
           </small>
         )}
 

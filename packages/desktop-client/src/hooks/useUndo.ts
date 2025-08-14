@@ -1,8 +1,13 @@
 import { useCallback } from 'react';
-import { useDispatch } from 'react-redux';
 
-import { undo, redo, addNotification } from 'loot-core/client/actions';
-import { type Notification } from 'loot-core/client/state-types/notifications';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+
+import {
+  addNotification,
+  type Notification,
+} from '@desktop-client/notifications/notificationsSlice';
+import { useDispatch } from '@desktop-client/redux';
+import { redo, undo } from '@desktop-client/undo';
 
 type UndoActions = {
   undo: () => void;
@@ -15,52 +20,57 @@ const timeout = 10000;
 
 export function useUndo(): UndoActions {
   const dispatch = useDispatch();
-
-  const dispatchUndo = useCallback(() => {
-    dispatch(undo());
-  }, [dispatch]);
-
-  const dispatchRedo = useCallback(() => {
-    dispatch(redo());
-  }, [dispatch]);
+  const { isNarrowWidth } = useResponsive();
 
   const showUndoNotification = useCallback(
     (notification: Notification) => {
+      if (!isNarrowWidth) {
+        return;
+      }
+
       dispatch(
         addNotification({
-          type: 'message',
-          timeout,
-          button: {
-            title: 'Undo',
-            action: dispatchUndo,
+          notification: {
+            type: 'message',
+            timeout,
+            button: {
+              title: 'Undo',
+              action: undo,
+            },
+            ...notification,
           },
-          ...notification,
         }),
       );
     },
-    [dispatch, dispatchUndo],
+    [dispatch, isNarrowWidth],
   );
 
   const showRedoNotification = useCallback(
-    (notificaton: Notification) => {
+    (notification: Notification) => {
+      if (!isNarrowWidth) {
+        return;
+      }
+
       dispatch(
         addNotification({
-          type: 'message',
-          timeout,
-          button: {
-            title: 'Redo',
-            action: dispatchRedo,
+          notification: {
+            type: 'message',
+            timeout,
+            button: {
+              title: 'Redo',
+              action: redo,
+            },
+            ...notification,
           },
-          ...notificaton,
         }),
       );
     },
-    [dispatch, dispatchRedo],
+    [dispatch, isNarrowWidth],
   );
 
   return {
-    undo: dispatchUndo,
-    redo: dispatchRedo,
+    undo,
+    redo,
     showUndoNotification,
     showRedoNotification,
   };

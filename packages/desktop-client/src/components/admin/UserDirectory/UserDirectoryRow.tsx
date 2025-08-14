@@ -2,14 +2,16 @@
 import React, { memo } from 'react';
 import { Trans } from 'react-i18next';
 
-import { PossibleRoles, type UserEntity } from 'loot-core/types/models/user';
+import { Button } from '@actual-app/components/button';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { useSelectedDispatch } from '../../../hooks/useSelected';
-import { theme } from '../../../style';
-import { Button } from '../../common/Button2';
-import { View } from '../../common/View';
-import { Checkbox } from '../../forms';
-import { SelectCell, Row, Cell } from '../../table';
+import { PossibleRoles } from 'loot-core/shared/user';
+import { type UserEntity } from 'loot-core/types/models';
+
+import { Checkbox } from '@desktop-client/components/forms';
+import { SelectCell, Row, Cell } from '@desktop-client/components/table';
+import { useSelectedDispatch } from '@desktop-client/hooks/useSelected';
 
 type UserDirectoryProps = {
   user: UserEntity;

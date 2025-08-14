@@ -1,40 +1,24 @@
 import React, { type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 
+import { Select } from '@actual-app/components/select';
+import { Text } from '@actual-app/components/text';
+import { theme as themeStyle } from '@actual-app/components/theme';
+import { tokens } from '@actual-app/components/tokens';
+import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 
 import { type DarkTheme, type Theme } from 'loot-core/types/prefs';
 
+import { Column, Setting } from './UI';
+
+import { useSidebar } from '@desktop-client/components/sidebar/SidebarProvider';
 import {
   themeOptions,
   useTheme,
-  theme as themeStyle,
   usePreferredDarkTheme,
   darkThemeOptions,
-} from '../../style';
-import { tokens } from '../../tokens';
-import { Select } from '../common/Select';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { useSidebar } from '../sidebar/SidebarProvider';
-
-import { Setting } from './UI';
-
-function Column({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <View
-      style={{
-        alignItems: 'flex-start',
-        flexGrow: 1,
-        gap: '0.5em',
-        width: '100%',
-      }}
-    >
-      <Text style={{ fontWeight: 500 }}>{title}</Text>
-      <View style={{ alignItems: 'flex-start', gap: '1em' }}>{children}</View>
-    </View>
-  );
-}
+} from '@desktop-client/style';
 
 export function ThemeSettings() {
   const { t } = useTranslation();
@@ -59,7 +43,7 @@ export function ThemeSettings() {
             },
           }}
         >
-          <Column title="Theme">
+          <Column title={t('Theme')}>
             <Select<Theme>
               onChange={value => {
                 switchTheme(value);
@@ -74,7 +58,7 @@ export function ThemeSettings() {
             />
           </Column>
           {theme === 'auto' && (
-            <Column title="Dark theme">
+            <Column title={t('Dark theme')}>
               <Select<DarkTheme>
                 onChange={value => {
                   switchDarkTheme(value);
@@ -93,8 +77,9 @@ export function ThemeSettings() {
       }
     >
       <Text>
-        <strong>{t('Themes')}</strong>
-        {t(' change the user interface colors.')}
+        <Trans>
+          <strong>Themes</strong> change the user interface colors.
+        </Trans>
       </Text>
     </Setting>
   );

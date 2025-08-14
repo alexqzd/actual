@@ -2,10 +2,11 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useAccount } from '../../hooks/useAccount';
-import { usePayee } from '../../hooks/usePayee';
-import { theme } from '../../style';
-import { Text } from '../common/Text';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+
+import { useAccount } from '@desktop-client/hooks/useAccount';
+import { usePayee } from '@desktop-client/hooks/usePayee';
 
 type DisplayIdProps = {
   type: 'accounts' | 'payees';

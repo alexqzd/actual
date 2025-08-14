@@ -1,27 +1,13 @@
 import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router';
 
-import { loggedIn, setAppState } from 'loot-core/client/actions';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { tokens } from '@actual-app/components/tokens';
+import { View } from '@actual-app/components/view';
 
-import { ProtectedRoute } from '../../auth/ProtectedRoute';
-import { Permissions } from '../../auth/types';
-import { useMetaThemeColor } from '../../hooks/useMetaThemeColor';
-import { theme } from '../../style';
-import { tokens } from '../../tokens';
-import {
-  BackToFileListButton,
-  UserDirectoryPage,
-} from '../admin/UserDirectory/UserDirectoryPage';
-import { AppBackground } from '../AppBackground';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { LoggedInUser } from '../LoggedInUser';
-import { Notifications } from '../Notifications';
-import { useResponsive } from '../responsive/ResponsiveProvider';
-import { useMultiuserEnabled, useServerVersion } from '../ServerContext';
-
-import { BudgetList } from './BudgetList';
+import { BudgetFileSelection } from './BudgetFileSelection';
 import { ConfigServer } from './ConfigServer';
 import { ServerURL } from './ServerURL';
 import { Bootstrap } from './subscribe/Bootstrap';
@@ -30,6 +16,24 @@ import { Error } from './subscribe/Error';
 import { Login } from './subscribe/Login';
 import { OpenIdCallback } from './subscribe/OpenIdCallback';
 import { WelcomeScreen } from './WelcomeScreen';
+
+import { setAppState } from '@desktop-client/app/appSlice';
+import { ProtectedRoute } from '@desktop-client/auth/ProtectedRoute';
+import { Permissions } from '@desktop-client/auth/types';
+import {
+  BackToFileListButton,
+  UserDirectoryPage,
+} from '@desktop-client/components/admin/UserDirectory/UserDirectoryPage';
+import { AppBackground } from '@desktop-client/components/AppBackground';
+import { LoggedInUser } from '@desktop-client/components/LoggedInUser';
+import { Notifications } from '@desktop-client/components/Notifications';
+import {
+  useMultiuserEnabled,
+  useServerVersion,
+} from '@desktop-client/components/ServerContext';
+import { useMetaThemeColor } from '@desktop-client/hooks/useMetaThemeColor';
+import { useSelector, useDispatch } from '@desktop-client/redux';
+import { loggedIn } from '@desktop-client/users/usersSlice';
 
 function Version() {
   const version = useServerVersion();
@@ -51,7 +55,7 @@ function Version() {
         },
       }}
     >
-      {`App: v${window.Actual?.ACTUAL_VERSION} | Server: ${version}`}
+      {`App: v${window.Actual.ACTUAL_VERSION} | Server: ${version}`}
     </Text>
   );
 }
@@ -132,7 +136,7 @@ export function ManagementApp() {
 
                 <Route path="/change-password" element={<ChangePassword />} />
                 {files && files.length > 0 ? (
-                  <Route path="/" element={<BudgetList />} />
+                  <Route path="/" element={<BudgetFileSelection />} />
                 ) : (
                   <Route path="/" element={<WelcomeScreen />} />
                 )}

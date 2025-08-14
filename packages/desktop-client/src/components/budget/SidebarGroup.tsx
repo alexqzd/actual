@@ -1,43 +1,43 @@
 // @ts-strict-ignore
-import React, { type CSSProperties, useRef } from 'react';
-import { type ConnectDragSource } from 'react-dnd';
+import React, { type CSSProperties, type RefCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useContextMenu } from '../../hooks/useContextMenu';
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
-import { SvgExpandArrow } from '../../icons/v0';
-import { SvgCheveronDown } from '../../icons/v1';
-import { theme } from '../../style';
-import { Button } from '../common/Button2';
-import { Menu } from '../common/Menu';
-import { Popover } from '../common/Popover';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { NotesButton } from '../NotesButton';
-import { InputCell } from '../table';
+import { Button } from '@actual-app/components/button';
+import { SvgExpandArrow } from '@actual-app/components/icons/v0';
+import { SvgCheveronDown } from '@actual-app/components/icons/v1';
+import { Menu } from '@actual-app/components/menu';
+import { Popover } from '@actual-app/components/popover';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
+import {
+  type CategoryEntity,
+  type CategoryGroupEntity,
+} from 'loot-core/types/models';
+
+import { NotesButton } from '@desktop-client/components/NotesButton';
+import { InputCell } from '@desktop-client/components/table';
+import { useContextMenu } from '@desktop-client/hooks/useContextMenu';
+import { useFeatureFlag } from '@desktop-client/hooks/useFeatureFlag';
+import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
 
 type SidebarGroupProps = {
-  group: {
-    id: string;
-    hidden: number;
-    categories: object[];
-    is_income: number;
-    name: string;
-    sort_order: number;
-    tombstone: number;
-  };
+  group: CategoryGroupEntity;
   editing?: boolean;
   collapsed: boolean;
   dragPreview?: boolean;
-  innerRef?: ConnectDragSource;
+  innerRef?: RefCallback<HTMLDivElement>;
   style?: CSSProperties;
-  onEdit?: (id: string) => void;
-  onSave?: (group: object) => Promise<void>;
-  onDelete?: (id: string) => Promise<void>;
-  onApplyBudgetTemplatesInGroup?: (categories: object[]) => void;
-  onShowNewCategory?: (groupId: string) => void;
+  onEdit?: (id: CategoryGroupEntity['id']) => void;
+  onSave?: (group: CategoryGroupEntity) => Promise<void>;
+  onDelete?: (id: CategoryGroupEntity['id']) => Promise<void>;
+  onApplyBudgetTemplatesInGroup?: (
+    categories: Array<CategoryEntity['id']>,
+  ) => void;
+  onShowNewCategory?: (groupId: CategoryGroupEntity['id']) => void;
   onHideNewGroup?: () => void;
-  onToggleCollapse?: (id: string) => void;
+  onToggleCollapse?: (id: CategoryGroupEntity['id']) => void;
 };
 
 export function SidebarGroup({
@@ -57,6 +57,8 @@ export function SidebarGroup({
 }: SidebarGroupProps) {
   const { t } = useTranslation();
   const isGoalTemplatesEnabled = useFeatureFlag('goalTemplatesEnabled');
+  const [categoryExpandedStatePref] = useGlobalPref('categoryExpandedState');
+  const categoryExpandedState = categoryExpandedStatePref ?? 0;
 
   const temporary = group.id === 'new';
   const { setMenuOpen, menuOpen, handleContextMenu, resetPosition, position } =
@@ -138,9 +140,7 @@ export function SidebarGroup({
                     onSave({ ...group, hidden: !group.hidden });
                   } else if (type === 'apply-multiple-category-template') {
                     onApplyBudgetTemplatesInGroup?.(
-                      group.categories
-                        .filter(c => !c['hidden'])
-                        .map(c => c['id']),
+                      group.categories.filter(c => !c.hidden).map(c => c.id),
                     );
                   }
                   setMenuOpen(false);
@@ -183,7 +183,7 @@ export function SidebarGroup({
       innerRef={innerRef}
       style={{
         ...style,
-        width: 200,
+        width: 200 + 100 * categoryExpandedState,
         backgroundColor: theme.tableRowHeaderBackground,
         overflow: 'hidden',
         '& .hover-visible': {
@@ -228,7 +228,7 @@ export function SidebarGroup({
         style={{ fontWeight: 600 }}
         inputProps={{
           style: { marginLeft: 20 },
-          placeholder: temporary ? t('New Group Name') : '',
+          placeholder: temporary ? t('New group name') : '',
         }}
       />
     </View>

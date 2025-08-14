@@ -1,6 +1,6 @@
 import { useLocalStorage } from 'usehooks-ts';
 
-import { type LocalPrefs } from 'loot-core/src/types/prefs';
+import { type LocalPrefs } from 'loot-core/types/prefs';
 
 import { useMetadataPref } from './useMetadataPref';
 
@@ -13,7 +13,7 @@ type SetLocalPrefAction<K extends keyof LocalPrefs> = (
  */
 export function useLocalPref<K extends keyof LocalPrefs>(
   prefName: K,
-): [LocalPrefs[K], SetLocalPrefAction<K>] {
+): [LocalPrefs[K], SetLocalPrefAction<K>, () => void] {
   const [budgetId] = useMetadataPref('id');
 
   return useLocalStorage<LocalPrefs[K]>(`${budgetId}-${prefName}`, undefined, {

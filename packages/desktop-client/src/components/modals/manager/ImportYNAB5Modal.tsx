@@ -1,39 +1,51 @@
 // @ts-strict-ignore
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
-import { importBudget } from 'loot-core/src/client/actions/budgets';
+import { Block } from '@actual-app/components/block';
+import { ButtonWithLoading } from '@actual-app/components/button';
+import { Paragraph } from '@actual-app/components/paragraph';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { useNavigate } from '../../../hooks/useNavigate';
-import { styles, theme } from '../../../style';
-import { Block } from '../../common/Block';
-import { ButtonWithLoading } from '../../common/Button2';
-import { Link } from '../../common/Link';
-import { Modal, ModalCloseButton, ModalHeader } from '../../common/Modal';
-import { Paragraph } from '../../common/Paragraph';
-import { View } from '../../common/View';
-
-function getErrorMessage(error: string): string {
-  switch (error) {
-    case 'parse-error':
-      return 'Unable to parse file. Please select a JSON file exported from nYNAB.';
-    case 'not-ynab5':
-      return 'This file is not valid. Please select a JSON file exported from nYNAB.';
-    default:
-      return 'An unknown error occurred while importing. Please report this as a new issue on Github.';
-  }
-}
+import { importBudget } from '@desktop-client/budgets/budgetsSlice';
+import { Link } from '@desktop-client/components/common/Link';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { useDispatch } from '@desktop-client/redux';
 
 export function ImportYNAB5Modal() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [error, setError] = useState<string | null>(null);
+
+  function getErrorMessage(error: string): string {
+    switch (error) {
+      case 'parse-error':
+        return t(
+          'Unable to parse file. Please select a JSON file exported from nYNAB.',
+        );
+      case 'not-ynab5':
+        return t(
+          'This file is not valid. Please select a JSON file exported from nYNAB.',
+        );
+      default:
+        return t(
+          'An unknown error occurred while importing. Please report this as a new issue on GitHub.',
+        );
+    }
+  }
+
   const [importing, setImporting] = useState(false);
 
   async function onImport() {
-    const res = await window.Actual?.openFileDialog({
+    const res = await window.Actual.openFileDialog({
       properties: ['openFile'],
       filters: [{ name: 'ynab', extensions: ['json'] }],
     });
@@ -41,7 +53,7 @@ export function ImportYNAB5Modal() {
       setImporting(true);
       setError(null);
       try {
-        await dispatch(importBudget(res[0], 'ynab5'));
+        await dispatch(importBudget({ filepath: res[0], type: 'ynab5' }));
         navigate('/budget');
       } catch (err) {
         setError(err.message);

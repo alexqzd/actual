@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { Menu } from '../common/Menu';
+import { Menu } from '@actual-app/components/menu';
 
 import { type SavedFilter } from './SavedFilterMenuButton';
 
@@ -39,7 +39,7 @@ export function FilterMenu({
               ]
             : [
                 { name: 'rename-filter', text: t('Rename') },
-                { name: 'update-filter', text: t('Update condtions') },
+                { name: 'update-filter', text: t('Update conditions') },
                 { name: 'reload-filter', text: t('Revert changes') },
                 { name: 'delete-filter', text: t('Delete') },
                 Menu.line,

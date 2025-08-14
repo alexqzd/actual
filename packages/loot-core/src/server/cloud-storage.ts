@@ -304,7 +304,9 @@ export async function upload() {
           ? { 'X-ACTUAL-ENCRYPT-META': JSON.stringify(uploadMeta) }
           : null),
         ...(groupId ? { 'X-ACTUAL-GROUP-ID': groupId } : null),
-      },
+        // TODO: fix me
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
       body: uploadContent,
     });
   } catch (err) {
@@ -366,7 +368,7 @@ export async function removeFile(fileId) {
   });
 }
 
-export async function listRemoteFiles(): Promise<RemoteFile[] | null> {
+export async function listRemoteFiles(): Promise<RemoteFile[]> {
   const userToken = await asyncStorage.getItem('user-token');
   if (!userToken) {
     return null;
@@ -389,10 +391,12 @@ export async function listRemoteFiles(): Promise<RemoteFile[] | null> {
     return null;
   }
 
-  return res.data.map(file => ({
-    ...file,
-    hasKey: encryption.hasKey(file.encryptKeyId),
-  }));
+  return res.data
+    .map(file => ({
+      ...file,
+      hasKey: encryption.hasKey(file.encryptKeyId),
+    }))
+    .filter(Boolean);
 }
 
 export async function getRemoteFile(
@@ -427,14 +431,14 @@ export async function getRemoteFile(
   };
 }
 
-export async function download(fileId) {
+export async function download(cloudFileId) {
   const userToken = await asyncStorage.getItem('user-token');
   const syncServer = getServer().SYNC_SERVER;
 
   const userFileFetch = fetch(`${syncServer}/download-user-file`, {
     headers: {
       'X-ACTUAL-TOKEN': userToken,
-      'X-ACTUAL-FILE-ID': fileId,
+      'X-ACTUAL-FILE-ID': cloudFileId,
     },
   })
     .then(checkHTTPStatus)
@@ -452,11 +456,11 @@ export async function download(fileId) {
   const userFileInfoFetch = fetchJSON(`${syncServer}/get-user-file-info`, {
     headers: {
       'X-ACTUAL-TOKEN': userToken,
-      'X-ACTUAL-FILE-ID': fileId,
+      'X-ACTUAL-FILE-ID': cloudFileId,
     },
   }).catch(err => {
     console.log('Error fetching file info', err);
-    throw FileDownloadError('internal', { fileId });
+    throw FileDownloadError('internal', { fileId: cloudFileId });
   });
 
   const [userFileInfoRes, userFileRes] = await Promise.all([
@@ -469,7 +473,7 @@ export async function download(fileId) {
       'Could not download file from the server. Are you sure you have the right file ID?',
       userFileInfoRes,
     );
-    throw FileDownloadError('internal', { fileId });
+    throw FileDownloadError('internal', { fileId: cloudFileId });
   }
 
   const fileData = userFileInfoRes.data;

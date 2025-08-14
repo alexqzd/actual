@@ -1,10 +1,30 @@
 // @ts-strict-ignore
-import React, { memo, useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
+import { styles } from '@actual-app/components/styles';
+import { View } from '@actual-app/components/view';
+
+import { send } from 'loot-core/platform/client/fetch';
+import * as monthUtils from 'loot-core/shared/months';
+
+import { DynamicBudgetTable } from './DynamicBudgetTable';
+import * as envelopeBudget from './envelope/EnvelopeBudgetComponents';
+import { EnvelopeBudgetProvider } from './envelope/EnvelopeBudgetContext';
+import * as trackingBudget from './tracking/TrackingBudgetComponents';
+import { TrackingBudgetProvider } from './tracking/TrackingBudgetContext';
+import { prewarmAllMonths, prewarmMonth } from './util';
+
+import { useCategories } from '@desktop-client/hooks/useCategories';
+import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
+import { useLocalPref } from '@desktop-client/hooks/useLocalPref';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { SheetNameProvider } from '@desktop-client/hooks/useSheetName';
+import { useSpreadsheet } from '@desktop-client/hooks/useSpreadsheet';
+import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
+import { pushModal } from '@desktop-client/modals/modalsSlice';
+import { addNotification } from '@desktop-client/notifications/notificationsSlice';
 import {
-  addNotification,
   applyBudgetAction,
   createCategory,
   createGroup,
@@ -13,29 +33,10 @@ import {
   getCategories,
   moveCategory,
   moveCategoryGroup,
-  pushModal,
   updateCategory,
   updateGroup,
-} from 'loot-core/src/client/actions';
-import { useSpreadsheet } from 'loot-core/src/client/SpreadsheetProvider';
-import { send, listen } from 'loot-core/src/platform/client/fetch';
-import * as monthUtils from 'loot-core/src/shared/months';
-
-import { useCategories } from '../../hooks/useCategories';
-import { useGlobalPref } from '../../hooks/useGlobalPref';
-import { useLocalPref } from '../../hooks/useLocalPref';
-import { useNavigate } from '../../hooks/useNavigate';
-import { useSyncedPref } from '../../hooks/useSyncedPref';
-import { styles } from '../../style';
-import { View } from '../common/View';
-import { NamespaceContext } from '../spreadsheet/NamespaceContext';
-
-import { DynamicBudgetTable } from './DynamicBudgetTable';
-import * as envelopeBudget from './envelope/EnvelopeBudgetComponents';
-import { EnvelopeBudgetProvider } from './envelope/EnvelopeBudgetContext';
-import * as trackingBudget from './tracking/TrackingBudgetComponents';
-import { TrackingBudgetProvider } from './tracking/TrackingBudgetContext';
-import { prewarmAllMonths, prewarmMonth } from './util';
+} from '@desktop-client/queries/queriesSlice';
+import { useDispatch } from '@desktop-client/redux';
 
 type TrackingReportComponents = {
   SummaryComponent: typeof trackingBudget.BudgetSummary;
@@ -48,7 +49,7 @@ type TrackingReportComponents = {
 };
 
 type EnvelopeBudgetComponents = {
-  SummaryComponent: typeof EnvelopeBudgetSummary;
+  SummaryComponent: typeof envelopeBudget.BudgetSummary;
   ExpenseCategoryComponent: typeof envelopeBudget.ExpenseCategoryMonth;
   ExpenseGroupComponent: typeof envelopeBudget.ExpenseGroupMonth;
   IncomeCategoryComponent: typeof envelopeBudget.IncomeCategoryMonth;
@@ -78,19 +79,15 @@ function BudgetInner(props: BudgetInnerProps) {
     start: startMonth,
     end: startMonth,
   });
-  const [budgetType = 'rollover'] = useSyncedPref('budgetType');
+  const [budgetType = 'envelope'] = useSyncedPref('budgetType');
   const [maxMonthsPref] = useGlobalPref('maxMonths');
   const maxMonths = maxMonthsPref || 1;
   const [initialized, setInitialized] = useState(false);
   const { grouped: categoryGroups } = useCategories();
 
-  function loadCategories() {
-    dispatch(getCategories());
-  }
-
   useEffect(() => {
     async function run() {
-      loadCategories();
+      await dispatch(getCategories());
 
       const { start, end } = await send('get-budget-bounds');
       setBounds({ start, end });
@@ -106,29 +103,6 @@ function BudgetInner(props: BudgetInnerProps) {
     }
 
     run();
-
-    const unlistens = [
-      listen('sync-event', ({ type, tables }) => {
-        if (
-          type === 'success' &&
-          (tables.includes('categories') ||
-            tables.includes('category_mapping') ||
-            tables.includes('category_groups'))
-        ) {
-          loadCategories();
-        }
-      }),
-
-      listen('undo-event', ({ tables }) => {
-        if (tables.includes('categories')) {
-          loadCategories();
-        }
-      }),
-    ];
-
-    return () => {
-      unlistens.forEach(unlisten => unlisten());
-    };
   }, []);
 
   useEffect(() => {
@@ -174,11 +148,13 @@ function BudgetInner(props: BudgetInnerProps) {
   const categoryNameAlreadyExistsNotification = name => {
     dispatch(
       addNotification({
-        type: 'error',
-        message: t(
-          'Category ‘{{name}}‘ already exists in group (May be Hidden)',
-          { name },
-        ),
+        notification: {
+          type: 'error',
+          message: t(
+            'Category “{{name}}” already exists in group (it may be hidden)',
+            { name },
+          ),
+        },
       }),
     );
   };
@@ -187,7 +163,7 @@ function BudgetInner(props: BudgetInnerProps) {
     const cats = await send('get-categories');
     const exists =
       cats.grouped
-        .filter(g => g.id === category.cat_group)[0]
+        .filter(g => g.id === category.group)[0]
         .categories.filter(
           c => c.name.toUpperCase() === category.name.toUpperCase(),
         )
@@ -201,15 +177,15 @@ function BudgetInner(props: BudgetInnerProps) {
 
     if (category.id === 'new') {
       dispatch(
-        createCategory(
-          category.name,
-          category.cat_group,
-          category.is_income,
-          category.hidden,
-        ),
+        createCategory({
+          name: category.name,
+          groupId: category.group,
+          isIncome: category.is_income,
+          isHidden: category.hidden,
+        }),
       );
     } else {
-      dispatch(updateCategory(category));
+      dispatch(updateCategory({ category }));
     }
   };
 
@@ -218,25 +194,32 @@ function BudgetInner(props: BudgetInnerProps) {
 
     if (mustTransfer) {
       dispatch(
-        pushModal('confirm-category-delete', {
-          category: id,
-          onDelete: transferCategory => {
-            if (id !== transferCategory) {
-              dispatch(deleteCategory(id, transferCategory));
-            }
+        pushModal({
+          modal: {
+            name: 'confirm-category-delete',
+            options: {
+              category: id,
+              onDelete: transferCategory => {
+                if (id !== transferCategory) {
+                  dispatch(
+                    deleteCategory({ id, transferId: transferCategory }),
+                  );
+                }
+              },
+            },
           },
         }),
       );
     } else {
-      dispatch(deleteCategory(id));
+      dispatch(deleteCategory({ id }));
     }
   };
 
   const onSaveGroup = group => {
     if (group.id === 'new') {
-      dispatch(createGroup(group.name));
+      dispatch(createGroup({ name: group.name }));
     } else {
-      dispatch(updateGroup(group));
+      dispatch(updateGroup({ group }));
     }
   };
 
@@ -253,29 +236,37 @@ function BudgetInner(props: BudgetInnerProps) {
 
     if (mustTransfer) {
       dispatch(
-        pushModal('confirm-category-delete', {
-          group: id,
-          onDelete: transferCategory => {
-            dispatch(deleteGroup(id, transferCategory));
+        pushModal({
+          modal: {
+            name: 'confirm-category-delete',
+            options: {
+              group: id,
+              onDelete: transferCategory => {
+                dispatch(deleteGroup({ id, transferId: transferCategory }));
+              },
+            },
           },
         }),
       );
     } else {
-      dispatch(deleteGroup(id));
+      dispatch(deleteGroup({ id }));
     }
   };
 
   const onApplyBudgetTemplatesInGroup = async categories => {
     dispatch(
-      applyBudgetAction(startMonth, 'apply-multiple-templates', {
+      applyBudgetAction({
         month: startMonth,
-        categories,
+        type: 'apply-multiple-templates',
+        args: {
+          categories,
+        },
       }),
     );
   };
 
   const onBudgetAction = (month, type, args) => {
-    dispatch(applyBudgetAction(month, type, args));
+    dispatch(applyBudgetAction({ month, type, args }));
   };
 
   const onShowActivity = (categoryId, month) => {
@@ -314,11 +305,19 @@ function BudgetInner(props: BudgetInnerProps) {
       return;
     }
 
-    dispatch(moveCategory(sortInfo.id, sortInfo.groupId, sortInfo.targetId));
+    dispatch(
+      moveCategory({
+        id: sortInfo.id,
+        groupId: sortInfo.groupId,
+        targetId: sortInfo.targetId,
+      }),
+    );
   };
 
   const onReorderGroup = async sortInfo => {
-    dispatch(moveCategoryGroup(sortInfo.id, sortInfo.targetId));
+    dispatch(
+      moveCategoryGroup({ id: sortInfo.id, targetId: sortInfo.targetId }),
+    );
   };
 
   const onToggleCollapse = () => {
@@ -332,7 +331,7 @@ function BudgetInner(props: BudgetInnerProps) {
   }
 
   let table;
-  if (budgetType === 'report') {
+  if (budgetType === 'tracking') {
     table = (
       <TrackingBudgetProvider
         summaryCollapsed={summaryCollapsed}
@@ -389,17 +388,11 @@ function BudgetInner(props: BudgetInnerProps) {
   }
 
   return (
-    <NamespaceContext.Provider value={monthUtils.sheetForMonth(startMonth)}>
+    <SheetNameProvider name={monthUtils.sheetForMonth(startMonth)}>
       <View style={{ flex: 1 }}>{table}</View>
-    </NamespaceContext.Provider>
+    </SheetNameProvider>
   );
 }
-
-const EnvelopeBudgetSummary = memo<{ month: string }>(props => {
-  return <envelopeBudget.BudgetSummary {...props} />;
-});
-
-EnvelopeBudgetSummary.displayName = 'EnvelopeBudgetSummary';
 
 export function Budget() {
   const trackingComponents = useMemo<TrackingReportComponents>(
@@ -417,7 +410,7 @@ export function Budget() {
 
   const envelopeComponents = useMemo<EnvelopeBudgetComponents>(
     () => ({
-      SummaryComponent: EnvelopeBudgetSummary,
+      SummaryComponent: envelopeBudget.BudgetSummary,
       ExpenseCategoryComponent: envelopeBudget.ExpenseCategoryMonth,
       ExpenseGroupComponent: envelopeBudget.ExpenseGroupMonth,
       IncomeCategoryComponent: envelopeBudget.IncomeCategoryMonth,

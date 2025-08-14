@@ -1,12 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { getPayees } from 'loot-core/client/actions';
-import {
-  useTransactions,
-  useTransactionsSearch,
-} from 'loot-core/client/data-hooks/transactions';
-import * as queries from 'loot-core/client/queries';
+import { TextOneLine } from '@actual-app/components/text-one-line';
+import { View } from '@actual-app/components/view';
+
 import { listen } from 'loot-core/platform/client/fetch';
 import * as monthUtils from 'loot-core/shared/months';
 import { q } from 'loot-core/shared/query';
@@ -16,14 +12,19 @@ import {
   type TransactionEntity,
 } from 'loot-core/types/models';
 
-import { useDateFormat } from '../../../hooks/useDateFormat';
-import { useNavigate } from '../../../hooks/useNavigate';
-import { TextOneLine } from '../../common/TextOneLine';
-import { View } from '../../common/View';
-import { MobilePageHeader, Page } from '../../Page';
-import { MobileBackButton } from '../MobileBackButton';
-import { AddTransactionButton } from '../transactions/AddTransactionButton';
-import { TransactionListWithBalances } from '../transactions/TransactionListWithBalances';
+import { MobileBackButton } from '@desktop-client/components/mobile/MobileBackButton';
+import { AddTransactionButton } from '@desktop-client/components/mobile/transactions/AddTransactionButton';
+import { TransactionListWithBalances } from '@desktop-client/components/mobile/transactions/TransactionListWithBalances';
+import { MobilePageHeader, Page } from '@desktop-client/components/Page';
+import { SchedulesProvider } from '@desktop-client/hooks/useCachedSchedules';
+import { useCategoryPreviewTransactions } from '@desktop-client/hooks/useCategoryPreviewTransactions';
+import { useDateFormat } from '@desktop-client/hooks/useDateFormat';
+import { useLocale } from '@desktop-client/hooks/useLocale';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { useTransactions } from '@desktop-client/hooks/useTransactions';
+import { useTransactionsSearch } from '@desktop-client/hooks/useTransactionsSearch';
+import { useDispatch } from '@desktop-client/redux';
+import * as bindings from '@desktop-client/spreadsheet/bindings';
 
 type CategoryTransactionsProps = {
   category: CategoryEntity;
@@ -34,6 +35,44 @@ export function CategoryTransactions({
   category,
   month,
 }: CategoryTransactionsProps) {
+  const locale = useLocale();
+
+  const schedulesQuery = useMemo(() => q('schedules').select('*'), []);
+
+  return (
+    <Page
+      header={
+        <MobilePageHeader
+          title={
+            <View>
+              <TextOneLine>{category.name}</TextOneLine>
+              <TextOneLine>
+                ({monthUtils.format(month, 'MMMM ‘yy', locale)})
+              </TextOneLine>
+            </View>
+          }
+          leftContent={<MobileBackButton />}
+          rightContent={<AddTransactionButton categoryId={category.id} />}
+        />
+      }
+      padding={0}
+    >
+      <SchedulesProvider query={schedulesQuery}>
+        <TransactionListWithPreviews category={category} month={month} />
+      </SchedulesProvider>
+    </Page>
+  );
+}
+
+type TransactionListWithPreviewsProps = {
+  category: CategoryEntity;
+  month: string;
+};
+
+function TransactionListWithPreviews({
+  category,
+  month,
+}: TransactionListWithPreviewsProps) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -62,8 +101,9 @@ export function CategoryTransactions({
   const dateFormat = useDateFormat() || 'MM/dd/yyyy';
 
   useEffect(() => {
-    return listen('sync-event', ({ type, tables }) => {
-      if (type === 'applied') {
+    return listen('sync-event', event => {
+      if (event.type === 'applied') {
+        const tables = event.tables;
         if (
           tables.includes('transactions') ||
           tables.includes('category_mapping') ||
@@ -71,15 +111,11 @@ export function CategoryTransactions({
         ) {
           reloadTransactions();
         }
-
-        if (tables.includes('payees') || tables.includes('payee_mapping')) {
-          dispatch(getPayees());
-        }
       }
     });
   }, [dispatch, reloadTransactions]);
 
-  const { search: onSearch } = useTransactionsSearch({
+  const { isSearching, search: onSearch } = useTransactionsSearch({
     updateQuery: setTransactionsQuery,
     resetQuery: () => setTransactionsQuery(baseTransactionsQuery()),
     dateFormat,
@@ -95,42 +131,37 @@ export function CategoryTransactions({
     [navigate],
   );
 
-  const balance = queries.categoryBalance(category, month);
-  const balanceCleared = queries.categoryBalanceCleared(category, month);
-  const balanceUncleared = queries.categoryBalanceUncleared(category, month);
+  const balance = bindings.categoryBalance(category.id, month);
+  const balanceCleared = bindings.categoryBalanceCleared(category.id, month);
+  const balanceUncleared = bindings.categoryBalanceUncleared(
+    category.id,
+    month,
+  );
+
+  const { previewTransactions } = useCategoryPreviewTransactions({
+    categoryId: category.id,
+    month,
+  });
+
+  const transactionsToDisplay = !isSearching
+    ? previewTransactions.concat(transactions)
+    : transactions;
 
   return (
-    <Page
-      header={
-        <MobilePageHeader
-          title={
-            <View>
-              <TextOneLine>{category.name}</TextOneLine>
-              <TextOneLine>
-                ({monthUtils.format(month, 'MMMM ‘yy')})
-              </TextOneLine>
-            </View>
-          }
-          leftContent={<MobileBackButton />}
-          rightContent={<AddTransactionButton categoryId={category.id} />}
-        />
-      }
-      padding={0}
-    >
-      <TransactionListWithBalances
-        isLoading={isLoading}
-        transactions={transactions}
-        balance={balance}
-        balanceCleared={balanceCleared}
-        balanceUncleared={balanceUncleared}
-        searchPlaceholder={`Search ${category.name}`}
-        onSearch={onSearch}
-        isLoadingMore={isLoadingMore}
-        onLoadMore={loadMoreTransactions}
-        onOpenTransaction={onOpenTransaction}
-        onRefresh={undefined}
-      />
-    </Page>
+    <TransactionListWithBalances
+      isLoading={isLoading}
+      transactions={transactionsToDisplay}
+      balance={balance}
+      balanceCleared={balanceCleared}
+      balanceUncleared={balanceUncleared}
+      searchPlaceholder={`Search ${category.name}`}
+      onSearch={onSearch}
+      isLoadingMore={isLoadingMore}
+      onLoadMore={loadMoreTransactions}
+      onOpenTransaction={onOpenTransaction}
+      onRefresh={undefined}
+      account={undefined}
+    />
   );
 }
 

@@ -9,29 +9,31 @@ import {
   type CSSProperties,
 } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
-import { pushModal } from 'loot-core/src/client/actions/modals';
-import { send } from 'loot-core/src/platform/client/fetch';
-import * as undo from 'loot-core/src/platform/client/undo';
-import {
-  type NewUserEntity,
-  type UserEntity,
-} from 'loot-core/types/models/user';
+import { Button } from '@actual-app/components/button';
+import { Stack } from '@actual-app/components/stack';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { useActions } from '../../../hooks/useActions';
-import { SelectedProvider, useSelected } from '../../../hooks/useSelected';
-import { theme } from '../../../style';
-import { Button } from '../../common/Button2';
-import { Link } from '../../common/Link';
-import { Search } from '../../common/Search';
-import { SimpleTable } from '../../common/SimpleTable';
-import { Stack } from '../../common/Stack';
-import { Text } from '../../common/Text';
-import { View } from '../../common/View';
+import { send } from 'loot-core/platform/client/fetch';
+import * as undo from 'loot-core/platform/client/undo';
+import { type NewUserEntity, type UserEntity } from 'loot-core/types/models';
 
 import { UserDirectoryHeader } from './UserDirectoryHeader';
 import { UserDirectoryRow } from './UserDirectoryRow';
+
+import { InfiniteScrollWrapper } from '@desktop-client/components/common/InfiniteScrollWrapper';
+import { Link } from '@desktop-client/components/common/Link';
+import { Search } from '@desktop-client/components/common/Search';
+import {
+  SelectedProvider,
+  useSelected,
+} from '@desktop-client/hooks/useSelected';
+import { pushModal } from '@desktop-client/modals/modalsSlice';
+import { addNotification } from '@desktop-client/notifications/notificationsSlice';
+import { useDispatch } from '@desktop-client/redux';
+import { signOut } from '@desktop-client/users/usersSlice';
 
 type ManageUserDirectoryContentProps = {
   isModal: boolean;
@@ -41,37 +43,40 @@ type ManageUserDirectoryContentProps = {
 function useGetUserDirectoryErrors() {
   const { t } = useTranslation();
 
-  function getUserDirectoryErrors(reason) {
-    switch (reason) {
-      case 'unauthorized':
-        return t('You are not logged in.');
-      case 'token-expired':
-        return t('Login expired, please login again.');
-      case 'user-cant-be-empty':
-        return t(
-          'Please enter a value for the username; the field cannot be empty.',
-        );
-      case 'role-cant-be-empty':
-        return t('Select a role; the field cannot be empty.');
-      case 'user-already-exists':
-        return t(
-          'The username you entered already exists. Please choose a different username.',
-        );
-      case 'not-all-deleted':
-        return t(
-          'Not all users were deleted. Check if one of the selected users is the server owner.',
-        );
-      case 'role-does-not-exists':
-        return t(
-          'Selected role does not exists, possibly a bug? Visit https://actualbudget.org/contact/ for support.',
-        );
-      default:
-        return t(
-          'An internal error occurred, sorry! Visit https://actualbudget.org/contact/ for support. (ref: {{reason}})',
-          { reason },
-        );
-    }
-  }
+  const getUserDirectoryErrors = useCallback(
+    reason => {
+      switch (reason) {
+        case 'unauthorized':
+          return t('You are not logged in.');
+        case 'token-expired':
+          return t('Login expired, please log in again.');
+        case 'user-cant-be-empty':
+          return t(
+            'Please enter a value for the username; the field cannot be empty.',
+          );
+        case 'role-cant-be-empty':
+          return t('Select a role; the field cannot be empty.');
+        case 'user-already-exists':
+          return t(
+            'The username you entered already exists. Please choose a different username.',
+          );
+        case 'not-all-deleted':
+          return t(
+            'Not all users were deleted. Check if one of the selected users is the server owner.',
+          );
+        case 'role-does-not-exists':
+          return t(
+            'Selected role does not exist, possibly a bug? Visit https://actualbudget.org/contact/ for support.',
+          );
+        default:
+          return t(
+            'An internal error occurred, sorry! Visit https://actualbudget.org/contact/ for support. (ref: {{reason}})',
+            { reason },
+          );
+      }
+    },
+    [t],
+  );
 
   return { getUserDirectoryErrors };
 }
@@ -86,7 +91,6 @@ function UserDirectoryContent({
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState('');
   const dispatch = useDispatch();
-  const actions = useActions();
 
   const { getUserDirectoryErrors } = useGetUserDirectoryErrors();
 
@@ -103,6 +107,8 @@ function UserDirectoryContent({
     ).slice(0, 100 + page * 50);
   }, [allUsers, filter, page]);
   const selectedInst = useSelected('manage-users', allUsers, []);
+  const selectedCount = selectedInst.items.size;
+
   const [hoveredUser, setHoveredUser] = useState(null);
 
   const onSearchChange = useCallback(
@@ -117,11 +123,26 @@ function UserDirectoryContent({
     setLoading(true);
 
     const loadedUsers = (await send('users-get')) ?? [];
+    if ('error' in loadedUsers) {
+      dispatch(
+        addNotification({
+          notification: {
+            type: 'error',
+            id: 'error',
+            title: t('Error getting users'),
+            sticky: true,
+            message: getUserDirectoryErrors(loadedUsers.error),
+          },
+        }),
+      );
+      setLoading(false);
+      return;
+    }
 
     setAllUsers(loadedUsers);
     setLoading(false);
     return loadedUsers;
-  }, [setLoading]);
+  }, [dispatch, getUserDirectoryErrors, setLoading, t]);
 
   useEffect(() => {
     async function loadData() {
@@ -142,44 +163,68 @@ function UserDirectoryContent({
 
   const onDeleteSelected = useCallback(async () => {
     setLoading(true);
-    const { error } = await send('user-delete-all', [...selectedInst.items]);
+    const res = await send('user-delete-all', [...selectedInst.items]);
 
-    if (error) {
+    const error = res['error'];
+    const someDeletionsFailed = res['someDeletionsFailed'];
+    if (error || someDeletionsFailed) {
       if (error === 'token-expired') {
-        actions.addNotification({
-          type: 'error',
-          id: 'login-expired',
-          title: t('Login expired'),
-          sticky: true,
-          message: getUserDirectoryErrors(error),
-          button: {
-            title: t('Go to login'),
-            action: () => actions.signOut(),
-          },
-        });
+        dispatch(
+          addNotification({
+            notification: {
+              type: 'error',
+              id: 'login-expired',
+              title: t('Login expired'),
+              sticky: true,
+              message: getUserDirectoryErrors(error),
+              button: {
+                title: t('Go to login'),
+                action: () => {
+                  dispatch(signOut());
+                },
+              },
+            },
+          }),
+        );
       } else {
-        actions.addNotification({
-          type: 'error',
-          title: t('Something happened while deleting users'),
-          sticky: true,
-          message: getUserDirectoryErrors(error),
-        });
+        dispatch(
+          addNotification({
+            notification: {
+              type: 'error',
+              title: t('Something happened while deleting users'),
+              sticky: true,
+              message: getUserDirectoryErrors(error),
+            },
+          }),
+        );
       }
     }
 
     await loadUsers();
     selectedInst.dispatch({ type: 'select-none' });
     setLoading(false);
-  }, [actions, loadUsers, selectedInst, setLoading, getUserDirectoryErrors, t]);
+  }, [
+    setLoading,
+    selectedInst,
+    loadUsers,
+    dispatch,
+    t,
+    getUserDirectoryErrors,
+  ]);
 
   const onEditUser = useCallback(
     user => {
       dispatch(
-        pushModal('edit-user', {
-          user,
-          onSave: async () => {
-            await loadUsers();
-            setLoading(false);
+        pushModal({
+          modal: {
+            name: 'edit-user',
+            options: {
+              user,
+              onSave: async () => {
+                await loadUsers();
+                setLoading(false);
+              },
+            },
           },
         }),
       );
@@ -196,11 +241,16 @@ function UserDirectoryContent({
     };
 
     dispatch(
-      pushModal('edit-user', {
-        user,
-        onSave: async () => {
-          await loadUsers();
-          setLoading(false);
+      pushModal({
+        modal: {
+          name: 'edit-user',
+          options: {
+            user,
+            onSave: async () => {
+              await loadUsers();
+              setLoading(false);
+            },
+          },
         },
       }),
     );
@@ -232,15 +282,15 @@ function UserDirectoryContent({
             <Text>
               <Trans>
                 Manage and view users who can create new budgets or be invited
-                to access existing ones.{' '}
-                <Link
-                  variant="external"
-                  to="https://actualbudget.org/docs/budgeting/users/"
-                  linkColor="muted"
-                >
-                  Learn more
-                </Link>
-              </Trans>
+                to access existing ones.
+              </Trans>{' '}
+              <Link
+                variant="external"
+                to="https://actualbudget.org/docs/config/multi-user/"
+                linkColor="muted"
+              >
+                <Trans>Learn more</Trans>
+              </Link>
             </Text>
           </View>
           <View style={{ flex: 1 }} />
@@ -253,11 +303,7 @@ function UserDirectoryContent({
 
         <View style={{ flex: 1 }}>
           <UserDirectoryHeader />
-          <SimpleTable
-            loadMore={loadMore}
-            // Hide the last border of the item in the table
-            style={{ marginBottom: -1 }}
-          >
+          <InfiniteScrollWrapper loadMore={loadMore}>
             {filteredUsers.length === 0 ? (
               <EmptyMessage text={t('No users')} style={{ marginTop: 15 }} />
             ) : (
@@ -269,7 +315,7 @@ function UserDirectoryContent({
                 onEditUser={onEditUser}
               />
             )}
-          </SimpleTable>
+          </InfiniteScrollWrapper>
         </View>
         <View
           style={{
@@ -282,7 +328,9 @@ function UserDirectoryContent({
           <Stack direction="row" align="center" justify="flex-end" spacing={2}>
             {selectedInst.items.size > 0 && (
               <Button onPress={onDeleteSelected}>
-                <Trans> Delete {selectedInst.items.size} users </Trans>
+                <Trans count={selectedCount}>
+                  Delete {{ selectedCount }} users
+                </Trans>
               </Button>
             )}
             <Button variant="primary" onPress={onAddUser}>

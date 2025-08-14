@@ -1,8 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { Stack } from '../../common/Stack';
-import { View } from '../../common/View';
-import { SectionLabel } from '../../forms';
+import { Stack } from '@actual-app/components/stack';
+import { View } from '@actual-app/components/view';
 
 import { SelectField } from './SelectField';
 import { SubLabel } from './SubLabel';
@@ -11,6 +11,8 @@ import {
   type FieldMapping,
   type ImportTransaction,
 } from './utils';
+
+import { SectionLabel } from '@desktop-client/components/forms';
 
 type FieldMappingsProps = {
   transactions: ImportTransaction[];
@@ -38,6 +40,7 @@ export function FieldMappings({
   inOutMode,
   hasHeaderRow,
 }: FieldMappingsProps) {
+  const { t } = useTranslation();
   if (transactions.length === 0) {
     return null;
   }
@@ -47,7 +50,7 @@ export function FieldMappings({
 
   return (
     <View>
-      <SectionLabel title="CSV FIELDS" />
+      <SectionLabel title={t('CSV FIELDS')} />
       <Stack
         direction="row"
         align="flex-start"
@@ -55,7 +58,7 @@ export function FieldMappings({
         style={{ marginTop: 5 }}
       >
         <View style={{ flex: 1, marginRight: 10 }}>
-          <SubLabel title="Date" />
+          <SubLabel title={t('Date')} />
           <SelectField
             options={options}
             value={mappings.date}
@@ -65,7 +68,7 @@ export function FieldMappings({
           />
         </View>
         <View style={{ flex: 1, marginRight: 10 }}>
-          <SubLabel title="Payee" />
+          <SubLabel title={t('Payee')} />
           <SelectField
             options={options}
             value={mappings.payee}
@@ -75,7 +78,7 @@ export function FieldMappings({
           />
         </View>
         <View style={{ flex: 1, marginRight: 10 }}>
-          <SubLabel title="Notes" />
+          <SubLabel title={t('Notes')} />
           <SelectField
             options={options}
             value={mappings.notes}
@@ -85,7 +88,7 @@ export function FieldMappings({
           />
         </View>
         <View style={{ flex: 1, marginRight: 10 }}>
-          <SubLabel title="Category" />
+          <SubLabel title={t('Category')} />
           <SelectField
             options={options}
             value={mappings.category}
@@ -94,10 +97,10 @@ export function FieldMappings({
             firstTransaction={transactions[0]}
           />
         </View>
-        {splitMode ? (
+        {splitMode && !inOutMode ? (
           <>
             <View style={{ flex: 0.5 }}>
-              <SubLabel title="Outflow" />
+              <SubLabel title={t('Outflow')} />
               <SelectField
                 options={options}
                 value={mappings.outflow}
@@ -107,7 +110,7 @@ export function FieldMappings({
               />
             </View>
             <View style={{ flex: 0.5 }}>
-              <SubLabel title="Inflow" />
+              <SubLabel title={t('Inflow')} />
               <SelectField
                 options={options}
                 value={mappings.inflow}
@@ -121,7 +124,7 @@ export function FieldMappings({
           <>
             {inOutMode && (
               <View style={{ flex: 1 }}>
-                <SubLabel title="In/Out" />
+                <SubLabel title={t('In/Out')} />
                 <SelectField
                   options={options}
                   value={mappings.inOut}
@@ -132,7 +135,7 @@ export function FieldMappings({
               </View>
             )}
             <View style={{ flex: 1 }}>
-              <SubLabel title="Amount" />
+              <SubLabel title={t('Amount')} />
               <SelectField
                 options={options}
                 value={mappings.amount}

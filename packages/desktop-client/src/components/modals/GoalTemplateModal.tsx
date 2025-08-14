@@ -1,14 +1,20 @@
 import { Trans, useTranslation } from 'react-i18next';
 
-import { theme } from '../../style';
-import { Link } from '../common/Link';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { TableHeader, Row, Field } from '../table';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
+import { Link } from '@desktop-client/components/common/Link';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { TableHeader, Row, Field } from '@desktop-client/components/table';
 
 export function GoalTemplateModal() {
   const { t } = useTranslation();
+
   return (
     <Modal name="goal-templates" containerProps={{ style: { width: 850 } }}>
       {({ state: { close } }) => (
@@ -28,18 +34,18 @@ export function GoalTemplateModal() {
             </TableHeader>
             <Row style={{ backgroundColor: theme.tableBackground }}>
               <Field width="flex">
-                {t('#template $10 repeat every week starting 2025-01-03')}
+                #template $10 repeat every week starting 2025-01-03
               </Field>
-              <Field width="flex">{t('$10 a week')}</Field>
+              <Field width="flex">
+                <Trans>$10 a week</Trans>
+              </Field>
             </Row>
             <Row style={{ backgroundColor: theme.tableBackground }}>
               <Field width="flex">
-                {t(
-                  '#template $10 repeat every week starting 2025-01-03 up to $80',
-                )}
+                #template $10 repeat every week starting 2025-01-03 up to $80
               </Field>
               <Field width="flex">
-                {t('$10 a week, up to a maximum of $80')}
+                <Trans>$10 a week, up to a maximum of $80</Trans>
               </Field>
             </Row>
             <span>
@@ -54,19 +60,25 @@ export function GoalTemplateModal() {
               </Field>
             </TableHeader>
             <Row style={{ backgroundColor: theme.tableBackground }}>
-              <Field width="flex">{t('#template $50')}</Field>
-              <Field width="flex">{t('$50 each month')}</Field>
-            </Row>
-            <Row style={{ backgroundColor: theme.tableBackground }}>
-              <Field width="flex">{t('#template up to $150')}</Field>
+              <Field width="flex">#template $50</Field>
               <Field width="flex">
-                {t('Up to $150 each month, and remove extra funds over $150')}
+                <Trans>$50 each month</Trans>
               </Field>
             </Row>
             <Row style={{ backgroundColor: theme.tableBackground }}>
-              <Field width="flex">{t('#template up to $150 hold')}</Field>
+              <Field width="flex">#template up to $150</Field>
               <Field width="flex">
-                {t('Up to $150 each month, but retain any funds over $150')}
+                <Trans>
+                  Up to $150 each month, and remove extra funds over $150
+                </Trans>
+              </Field>
+            </Row>
+            <Row style={{ backgroundColor: theme.tableBackground }}>
+              <Field width="flex">#template up to $150 hold</Field>
+              <Field width="flex">
+                <Trans>
+                  Up to $150 each month, but retain any funds over $150
+                </Trans>
               </Field>
             </Row>
             <span>
@@ -82,26 +94,32 @@ export function GoalTemplateModal() {
             </TableHeader>
             <Row style={{ backgroundColor: theme.tableBackground }}>
               <Field width="flex">
-                {t('#template $500 by 2025-03 repeat every 6 months')}
+                #template $500 by 2025-03 repeat every 6 months
               </Field>
               <Field width="flex">
-                {t('Break down less-frequent expenses into monthly expenses')}
-              </Field>
-            </Row>
-            <Row style={{ backgroundColor: theme.tableBackground }}>
-              <Field width="flex">
-                {t('#template $500 by 2025-03 repeat every year')}
-              </Field>
-              <Field width="flex">
-                {t('Break down less-frequent expenses into monthly expenses')}
+                <Trans>
+                  Break down less-frequent expenses into monthly expenses
+                </Trans>
               </Field>
             </Row>
             <Row style={{ backgroundColor: theme.tableBackground }}>
               <Field width="flex">
-                {t('#template $500 by 2025-03 repeat every 2 years')}
+                #template $500 by 2025-03 repeat every year
               </Field>
               <Field width="flex">
-                {t('Break down less-frequent expenses into monthly expenses')}
+                <Trans>
+                  Break down less-frequent expenses into monthly expenses
+                </Trans>
+              </Field>
+            </Row>
+            <Row style={{ backgroundColor: theme.tableBackground }}>
+              <Field width="flex">
+                #template $500 by 2025-03 repeat every 2 years
+              </Field>
+              <Field width="flex">
+                <Trans>
+                  Break down less-frequent expenses into monthly expenses
+                </Trans>
               </Field>
             </Row>
             <span>
@@ -116,19 +134,17 @@ export function GoalTemplateModal() {
               </Field>
             </TableHeader>
             <Row style={{ backgroundColor: theme.tableBackground }}>
+              <Field width="flex">#template schedule SCHEDULE_NAME</Field>
               <Field width="flex">
-                {t('#template schedule SCHEDULE_NAME')}
-              </Field>
-              <Field width="flex">
-                {t('Fund upcoming scheduled transactions over time')}
+                <Trans>Fund upcoming scheduled transactions over time</Trans>
               </Field>
             </Row>
             <Row style={{ backgroundColor: theme.tableBackground }}>
+              <Field width="flex">#template schedule full SCHEDULE_NAME</Field>
               <Field width="flex">
-                {t('#template schedule full SCHEDULE_NAME')}
-              </Field>
-              <Field width="flex">
-                {t('Fund upcoming scheduled transaction only on needed month')}
+                <Trans>
+                  Fund upcoming scheduled transaction only on needed month
+                </Trans>
               </Field>
             </Row>
             <span>
@@ -136,16 +152,16 @@ export function GoalTemplateModal() {
             </span>
             <TableHeader>
               <Field width="flex">
-                <Trans>Goal Tempaltes</Trans>
+                <Trans>Goal Templates</Trans>
               </Field>
               <Field width="flex">
                 <Trans>Description</Trans>
               </Field>
             </TableHeader>
             <Row style={{ backgroundColor: theme.tableBackground }}>
-              <Field width="flex">{t('#goal 1000')}</Field>
+              <Field width="flex">#goal 1000</Field>
               <Field width="flex">
-                {t('Set a long-term goal instead of a monthly goal')}
+                <Trans>Set a long-term goal instead of a monthly goal</Trans>
               </Field>
             </Row>
             <div
@@ -160,15 +176,17 @@ export function GoalTemplateModal() {
                 <br />
               </span>
               <Text>
-                {t('See')}{' '}
-                <Link
-                  variant="external"
-                  linkColor="muted"
-                  to="https://actualbudget.org/docs/experimental/goal-templates"
-                >
-                  {t('Goal Templates')}
-                </Link>{' '}
-                {t('for more information.')}
+                <Trans>
+                  See{' '}
+                  <Link
+                    variant="external"
+                    linkColor="muted"
+                    to="https://actualbudget.org/docs/experimental/goal-templates"
+                  >
+                    Goal Templates
+                  </Link>{' '}
+                  for more information.
+                </Trans>
               </Text>
             </div>
           </View>

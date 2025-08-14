@@ -1,25 +1,39 @@
 // @ts-strict-ignore
 import React from 'react';
-import { useTranslation } from 'react-i18next'; // Import useTranslation
+import { useTranslation, Trans } from 'react-i18next';
 
-import { Block } from '../common/Block';
-import { Button } from '../common/Button2';
-import { InitialFocus } from '../common/InitialFocus';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
-import { View } from '../common/View';
+import { Block } from '@actual-app/components/block';
+import { Button } from '@actual-app/components/button';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { InitialFocus } from '@actual-app/components/initial-focus';
+import { styles } from '@actual-app/components/styles';
+import { View } from '@actual-app/components/view';
 
-type ConfirmTransactionEditProps = {
-  onCancel?: () => void;
-  onConfirm: () => void;
-  confirmReason: string;
-};
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { type Modal as ModalType } from '@desktop-client/modals/modalsSlice';
+
+type ConfirmTransactionEditModalProps = Extract<
+  ModalType,
+  { name: 'confirm-transaction-edit' }
+>['options'];
 
 export function ConfirmTransactionEditModal({
   onCancel,
   onConfirm,
   confirmReason,
-}: ConfirmTransactionEditProps) {
-  const { t } = useTranslation(); // Initialize translation hook
+}: ConfirmTransactionEditModalProps) {
+  const { t } = useTranslation();
+
+  const { isNarrowWidth } = useResponsive();
+  const narrowButtonStyle = isNarrowWidth
+    ? {
+        height: styles.mobileMinHeight,
+      }
+    : {};
 
   return (
     <Modal
@@ -29,89 +43,94 @@ export function ConfirmTransactionEditModal({
       {({ state: { close } }) => (
         <>
           <ModalHeader
-            title={t('Reconciled Transaction')} // Use translation for title
+            title={t('Reconciled Transaction')}
             rightContent={<ModalCloseButton onPress={close} />}
           />
           <View style={{ lineHeight: 1.5 }}>
             {confirmReason === 'batchDeleteWithReconciled' ? (
               <Block>
-                {t(
-                  'Deleting reconciled transactions may bring your reconciliation out of balance.',
-                )}
+                <Trans>
+                  Deleting reconciled transactions may bring your reconciliation
+                  out of balance.
+                </Trans>
               </Block>
             ) : confirmReason === 'batchEditWithReconciled' ? (
               <Block>
-                {t(
-                  'Editing reconciled transactions may bring your reconciliation out of balance.',
-                )}
+                <Trans>
+                  Editing reconciled transactions may bring your reconciliation
+                  out of balance.
+                </Trans>
               </Block>
             ) : confirmReason === 'batchDuplicateWithReconciled' ? (
               <Block>
-                {t(
-                  'Duplicating reconciled transactions may bring your reconciliation out of balance.',
-                )}
+                <Trans>
+                  Duplicating reconciled transactions may bring your
+                  reconciliation out of balance.
+                </Trans>
               </Block>
             ) : confirmReason === 'editReconciled' ? (
               <Block>
-                {t(
-                  'Saving your changes to this reconciled transaction may bring your reconciliation out of balance.',
-                )}
+                <Trans>
+                  Saving your changes to this reconciled transaction may bring
+                  your reconciliation out of balance.
+                </Trans>
               </Block>
             ) : confirmReason === 'unlockReconciled' ? (
               <Block>
-                {t(
-                  'Unlocking this transaction means you won‘t be warned about changes that can impact your reconciled balance. (Changes to amount, account, payee, etc).',
-                )}
+                <Trans>
+                  Unlocking this transaction means you won‘t be warned about
+                  changes that can impact your reconciled balance. (Changes to
+                  amount, account, payee, etc).
+                </Trans>
               </Block>
             ) : confirmReason === 'deleteReconciled' ? (
               <Block>
-                {t(
-                  'Deleting this reconciled transaction may bring your reconciliation out of balance.',
-                )}
+                <Trans>
+                  Deleting reconciled transactions may bring your reconciliation
+                  out of balance.
+                </Trans>
               </Block>
             ) : (
               <Block>
-                {t('Are you sure you want to edit this transaction?')}
+                <Trans>Are you sure you want to edit this transaction?</Trans>
               </Block>
             )}
-
             <View
               style={{
                 marginTop: 20,
                 flexDirection: 'row',
-                justifyContent: 'flex-start',
-                alignItems: 'center',
+                justifyContent: 'flex-end',
               }}
             >
-              <View
+              <Button
+                aria-label={t('Cancel')}
                 style={{
-                  flexDirection: 'row',
-                  justifyContent: 'flex-end',
+                  marginRight: 10,
+                  ...narrowButtonStyle,
+                }}
+                onPress={() => {
+                  close();
+                  onCancel();
                 }}
               >
+                <Trans>Cancel</Trans>
+              </Button>
+              <InitialFocus>
                 <Button
-                  aria-label={t('Cancel')} // Use translation for aria-label
-                  style={{ marginRight: 10 }}
+                  aria-label={t('Confirm')}
+                  variant="primary"
+                  style={{
+                    marginRight: 10,
+                    ...narrowButtonStyle,
+                  }}
                   onPress={() => {
                     close();
-                    onCancel();
+                    onConfirm();
                   }}
                 >
-                  {t('Cancel')} {/* Use translation for Cancel */}
+                  <Trans>Confirm</Trans>
                 </Button>
-                <InitialFocus>
-                  <Button
-                    aria-label={t('Confirm')} // Use translation for aria-label
-                    variant="primary"
-                    onPress={() => {
-                      close();
-                      onConfirm();
-                    }}
-                  >
-                    {t('Confirm')} {/* Use translation for Confirm */}
-                  </Button>
-                </InitialFocus>
-              </View>
+              </InitialFocus>
             </View>
           </View>
         </>

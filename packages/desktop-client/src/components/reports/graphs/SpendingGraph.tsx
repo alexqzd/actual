@@ -1,7 +1,9 @@
 // @ts-strict-ignore
 import React, { type ComponentProps, type CSSProperties } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 
+import { AlignedText } from '@actual-app/components/aligned-text';
+import { theme } from '@actual-app/components/theme';
 import { css } from '@emotion/css';
 import {
   AreaChart,
@@ -16,14 +18,12 @@ import {
 import {
   amountToCurrency,
   amountToCurrencyNoDecimal,
-} from 'loot-core/src/shared/util';
-import { type SpendingEntity } from 'loot-core/src/types/models/reports';
+} from 'loot-core/shared/util';
+import { type SpendingEntity } from 'loot-core/types/models';
 
-import { usePrivacyMode } from '../../../hooks/usePrivacyMode';
-import { theme } from '../../../style';
-import { AlignedText } from '../../common/AlignedText';
-import { Container } from '../Container';
-import { numberFormatterTooltip } from '../numberFormatter';
+import { Container } from '@desktop-client/components/reports/Container';
+import { numberFormatterTooltip } from '@desktop-client/components/reports/numberFormatter';
+import { usePrivacyMode } from '@desktop-client/hooks/usePrivacyMode';
 
 type PayloadItem = {
   value: number;
@@ -78,10 +78,15 @@ const CustomTooltip = ({
         <div>
           <div style={{ marginBottom: 10 }}>
             <strong>
-              {t('Day:') + ' '}
-              {Number(payload[0].payload.day) >= 28
-                ? t('28+')
-                : payload[0].payload.day}
+              <Trans>
+                Day:{' '}
+                {{
+                  dayOfMonth:
+                    Number(payload[0].payload.day) >= 28
+                      ? t('28+')
+                      : payload[0].payload.day,
+                }}
+              </Trans>
             </strong>
           </div>
           <div style={{ lineHeight: 1.5 }}>

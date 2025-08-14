@@ -1,7 +1,9 @@
 // @ts-strict-ignore
 import mitt from 'mitt';
 
-import { compileQuery, runCompiledQuery, schema, schemaConfig } from '../aql';
+import { QueryState } from '../../shared/query';
+import { compileQuery, aqlCompiledQuery, schema, schemaConfig } from '../aql';
+import { BudgetType } from '../prefs';
 
 import { Graph } from './graph-data-structure';
 import { unresolveName, resolveName } from './util';
@@ -11,7 +13,7 @@ export type Node = {
   expr: string | number | boolean;
   value: string | number | boolean;
   sheet: unknown;
-  query?: string;
+  query?: QueryState;
   sql?: { sqlPieces: unknown; state: { dependencies: unknown[] } };
   dynamic?: boolean;
   _run?: unknown;
@@ -19,7 +21,10 @@ export type Node = {
 };
 
 export class Spreadsheet {
-  _meta;
+  _meta: {
+    createdMonths: Set<string>;
+    budgetType: BudgetType;
+  };
   cacheBarrier;
   computeQueue;
   dirtyCells;
@@ -43,6 +48,7 @@ export class Spreadsheet {
     this.events = mitt();
     this._meta = {
       createdMonths: new Set(),
+      budgetType: 'envelope',
     };
   }
 
@@ -163,7 +169,7 @@ export class Spreadsheet {
             );
           }
         } else if (node.sql) {
-          result = runCompiledQuery(
+          result = aqlCompiledQuery(
             node.query,
             node.sql.sqlPieces,
             node.sql.state,
@@ -338,7 +344,7 @@ export class Spreadsheet {
     });
   }
 
-  createQuery(sheetName: string, cellName: string, query: string): void {
+  createQuery(sheetName: string, cellName: string, query: QueryState): void {
     const name = resolveName(sheetName, cellName);
     const node = this._getNode(name);
 

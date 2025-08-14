@@ -1,13 +1,13 @@
 import React from 'react';
 
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { View } from '@actual-app/components/view';
 import { useDebounceCallback } from 'usehooks-ts';
-
-import { useGlobalPref } from '../../hooks/useGlobalPref';
-import { View } from '../common/View';
-import { useResponsive } from '../responsive/ResponsiveProvider';
 
 import { Sidebar } from './Sidebar';
 import { useSidebar } from './SidebarProvider';
+
+import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
 
 export function FloatableSidebar() {
   const [floatingSidebar] = useGlobalPref('floatingSidebar');

@@ -1,20 +1,34 @@
 import React, { type ComponentProps, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { type TransactionEntity } from 'loot-core/types/models/transaction';
+import { Label } from '@actual-app/components/label';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { SelectedProvider, useSelected } from '../../../hooks/useSelected';
-import { SvgSearchAlternate } from '../../../icons/v2';
-import { styles, theme } from '../../../style';
-import { InputWithContent } from '../../common/InputWithContent';
-import { Label } from '../../common/Label';
-import { View } from '../../common/View';
-import type { Binding, SheetNames, SheetFields } from '../../spreadsheet';
-import { CellValue, CellValueText } from '../../spreadsheet/CellValue';
-import { useSheetValue } from '../../spreadsheet/useSheetValue';
-import { PullToRefresh } from '../PullToRefresh';
+import {
+  type AccountEntity,
+  type TransactionEntity,
+} from 'loot-core/types/models';
 
 import { TransactionList } from './TransactionList';
+
+import { Search } from '@desktop-client/components/common/Search';
+import { PullToRefresh } from '@desktop-client/components/mobile/PullToRefresh';
+import {
+  CellValue,
+  CellValueText,
+} from '@desktop-client/components/spreadsheet/CellValue';
+import {
+  SelectedProvider,
+  useSelected,
+} from '@desktop-client/hooks/useSelected';
+import { useSheetValue } from '@desktop-client/hooks/useSheetValue';
+import type {
+  Binding,
+  SheetNames,
+  SheetFields,
+} from '@desktop-client/spreadsheet';
 
 type TransactionSearchInputProps = {
   placeholder: string;
@@ -37,30 +51,18 @@ function TransactionSearchInput({
         width: '100%',
       }}
     >
-      <InputWithContent
-        leftContent={
-          <SvgSearchAlternate
-            style={{
-              width: 13,
-              height: 13,
-              flexShrink: 0,
-              color: text ? theme.formInputTextHighlight : 'inherit',
-              margin: 5,
-              marginRight: 0,
-            }}
-          />
-        }
+      <Search
         value={text}
-        onChangeValue={text => {
+        onChange={text => {
           setText(text);
           onSearch(text);
         }}
         placeholder={placeholder}
+        width="100%"
+        height={styles.mobileMinHeight}
         style={{
           backgroundColor: theme.tableBackground,
-          border: `1px solid ${theme.formInputBorder}`,
-          flex: 1,
-          height: styles.mobileMinHeight,
+          borderColor: theme.formInputBorder,
         }}
       />
     </View>
@@ -73,6 +75,7 @@ type TransactionListWithBalancesProps = {
   balance:
     | Binding<'account', 'onbudget-accounts-balance'>
     | Binding<'account', 'offbudget-accounts-balance'>
+    | Binding<'account', 'closed-accounts-balance'>
     | Binding<SheetNames, 'uncategorized-balance'>
     | Binding<'category', 'balance'>
     | Binding<'account', 'balance'>
@@ -89,6 +92,7 @@ type TransactionListWithBalancesProps = {
   onLoadMore: () => void;
   onOpenTransaction: (transaction: TransactionEntity) => void;
   onRefresh?: () => void;
+  account?: AccountEntity;
 };
 
 export function TransactionListWithBalances({
@@ -103,6 +107,7 @@ export function TransactionListWithBalances({
   onLoadMore,
   onOpenTransaction,
   onRefresh,
+  account,
 }: TransactionListWithBalancesProps) {
   const selectedInst = useSelected('transactions', [...transactions], []);
 
@@ -146,6 +151,7 @@ export function TransactionListWithBalances({
             isLoadingMore={isLoadingMore}
             onLoadMore={onLoadMore}
             onOpenTransaction={onOpenTransaction}
+            account={account}
           />
         </PullToRefresh>
       </>

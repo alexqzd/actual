@@ -1,44 +1,56 @@
 import { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
-import { send } from 'loot-core/platform/client/fetch';
-import * as asyncStorage from 'loot-core/src/platform/server/asyncStorage';
+import { Button } from '@actual-app/components/button';
+import { Label } from '@actual-app/components/label';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { useActions } from '../../hooks/useActions';
-import { theme, styles } from '../../style';
-import { Error as ErrorAlert } from '../alerts';
-import { Button } from '../common/Button2';
-import { Label } from '../common/Label';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
-import { View } from '../common/View';
-import { FormField } from '../forms';
+import { send } from 'loot-core/platform/client/fetch';
+import * as asyncStorage from 'loot-core/platform/server/asyncStorage';
+
+import { closeBudget } from '@desktop-client/budgets/budgetsSlice';
+import { Error as ErrorAlert } from '@desktop-client/components/alerts';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { FormField } from '@desktop-client/components/forms';
 import {
   ConfirmOldPasswordForm,
   ConfirmPasswordForm,
-} from '../manager/subscribe/ConfirmPasswordForm';
+} from '@desktop-client/components/manager/subscribe/ConfirmPasswordForm';
 import {
   useAvailableLoginMethods,
   useMultiuserEnabled,
   useRefreshLoginMethods,
-} from '../ServerContext';
+} from '@desktop-client/components/ServerContext';
+import {
+  type Modal as ModalType,
+  popModal,
+} from '@desktop-client/modals/modalsSlice';
+import { useDispatch } from '@desktop-client/redux';
 
-type PasswordEnableModalProps = {
-  onSave?: () => void;
-};
+type PasswordEnableModalProps = Extract<
+  ModalType,
+  { name: 'enable-password-auth' }
+>['options'];
 
 export function PasswordEnableModal({
   onSave: originalOnSave,
 }: PasswordEnableModalProps) {
   const { t } = useTranslation();
+  const dispatch = useDispatch();
 
   const [error, setError] = useState<string | null>(null);
-  const { closeBudget, popModal } = useActions();
   const multiuserEnabled = useMultiuserEnabled();
   const availableLoginMethods = useAvailableLoginMethods();
   const refreshLoginMethods = useRefreshLoginMethods();
 
   const errorMessages = {
-    'invalid-password': t('Invalid Password'),
+    'invalid-password': t('Invalid password'),
     'password-match': t('Passwords do not match'),
     'network-failure': t('Unable to contact the server'),
     'unable-to-change-file-config-enabled': t(
@@ -48,8 +60,7 @@ export function PasswordEnableModal({
 
   function getErrorMessage(error: string): string {
     return (
-      errorMessages[error as keyof typeof errorMessages] ||
-      t('Internal server error')
+      errorMessages[error as keyof typeof errorMessages] || t('Internal error')
     );
   }
 
@@ -60,7 +71,7 @@ export function PasswordEnableModal({
       originalOnSave?.();
       await refreshLoginMethods();
       await asyncStorage.removeItem('user-token');
-      await closeBudget();
+      await dispatch(closeBudget());
     } else {
       setError(getErrorMessage(error));
     }
@@ -85,7 +96,7 @@ export function PasswordEnableModal({
                     <Button
                       variant="bare"
                       style={{ fontSize: 15, marginRight: 10 }}
-                      onPress={() => popModal()}
+                      onPress={() => dispatch(popModal())}
                     >
                       <Trans>Cancel</Trans>
                     </Button>
@@ -102,7 +113,7 @@ export function PasswordEnableModal({
                     <Button
                       variant="bare"
                       style={{ fontSize: 15, marginRight: 10 }}
-                      onPress={() => popModal()}
+                      onPress={() => dispatch(popModal())}
                     >
                       <Trans>Cancel</Trans>
                     </Button>

@@ -1,37 +1,53 @@
 import React, { useEffect, useState } from 'react';
-import { DialogTrigger } from 'react-aria-components';
+import { Dialog, DialogTrigger } from 'react-aria-components';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
-import { pushModal } from 'loot-core/client/actions';
-import { send } from 'loot-core/src/platform/client/fetch';
+import { Button, ButtonWithLoading } from '@actual-app/components/button';
+import { SvgDotsHorizontalTriple } from '@actual-app/components/icons/v1';
+import { InitialFocus } from '@actual-app/components/initial-focus';
+import { Menu } from '@actual-app/components/menu';
+import { Paragraph } from '@actual-app/components/paragraph';
+import { Popover } from '@actual-app/components/popover';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { useAuth } from '../../auth/AuthProvider';
-import { Permissions } from '../../auth/types';
-import { authorizeBank } from '../../gocardless';
-import { useGoCardlessStatus } from '../../hooks/useGoCardlessStatus';
-import { useSimpleFinStatus } from '../../hooks/useSimpleFinStatus';
-import { useSyncServerStatus } from '../../hooks/useSyncServerStatus';
-import { SvgDotsHorizontalTriple } from '../../icons/v1';
-import { theme } from '../../style';
-import { Warning } from '../alerts';
-import { Button, ButtonWithLoading } from '../common/Button2';
-import { InitialFocus } from '../common/InitialFocus';
-import { Link } from '../common/Link';
-import { Menu } from '../common/Menu';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
-import { Paragraph } from '../common/Paragraph';
-import { Popover } from '../common/Popover';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { useMultiuserEnabled } from '../ServerContext';
+import { send } from 'loot-core/platform/client/fetch';
 
-type CreateAccountProps = {
-  upgradingAccountId?: string;
-};
+import { useAuth } from '@desktop-client/auth/AuthProvider';
+import { Permissions } from '@desktop-client/auth/types';
+import { Warning } from '@desktop-client/components/alerts';
+import { Link } from '@desktop-client/components/common/Link';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { useMultiuserEnabled } from '@desktop-client/components/ServerContext';
+import { authorizeBank } from '@desktop-client/gocardless';
+import { useFeatureFlag } from '@desktop-client/hooks/useFeatureFlag';
+import { useGoCardlessStatus } from '@desktop-client/hooks/useGoCardlessStatus';
+import { usePluggyAiStatus } from '@desktop-client/hooks/usePluggyAiStatus';
+import { useSimpleFinStatus } from '@desktop-client/hooks/useSimpleFinStatus';
+import { useSyncServerStatus } from '@desktop-client/hooks/useSyncServerStatus';
+import {
+  type Modal as ModalType,
+  pushModal,
+} from '@desktop-client/modals/modalsSlice';
+import { addNotification } from '@desktop-client/notifications/notificationsSlice';
+import { useDispatch } from '@desktop-client/redux';
 
-export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
+type CreateAccountModalProps = Extract<
+  ModalType,
+  { name: 'add-account' }
+>['options'];
+
+export function CreateAccountModal({
+  upgradingAccountId,
+}: CreateAccountModalProps) {
   const { t } = useTranslation();
+
+  const isPluggyAiEnabled = useFeatureFlag('pluggyAiBankSync');
 
   const syncServerStatus = useSyncServerStatus();
   const dispatch = useDispatch();
@@ -39,6 +55,9 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
     boolean | null
   >(null);
   const [isSimpleFinSetupComplete, setIsSimpleFinSetupComplete] = useState<
+    boolean | null
+  >(null);
+  const [isPluggyAiSetupComplete, setIsPluggyAiSetupComplete] = useState<
     boolean | null
   >(null);
   const { hasPermission } = useAuth();
@@ -53,9 +72,7 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
     if (upgradingAccountId == null) {
       authorizeBank(dispatch);
     } else {
-      authorizeBank(dispatch, {
-        upgradingAccountId,
-      });
+      authorizeBank(dispatch);
     }
   };
 
@@ -88,7 +105,7 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
         balance: number;
       };
 
-      for (const oldAccount of results.accounts) {
+      for (const oldAccount of results.accounts ?? []) {
         const newAccount: NormalizedAccount = {
           account_id: oldAccount.id,
           name: oldAccount.name,
@@ -102,16 +119,26 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
       }
 
       dispatch(
-        pushModal('select-linked-accounts', {
-          accounts: newAccounts,
-          syncSource: 'simpleFin',
+        pushModal({
+          modal: {
+            name: 'select-linked-accounts',
+            options: {
+              externalAccounts: newAccounts,
+              syncSource: 'simpleFin',
+            },
+          },
         }),
       );
     } catch (err) {
       console.error(err);
       dispatch(
-        pushModal('simplefin-init', {
-          onSuccess: () => setIsSimpleFinSetupComplete(true),
+        pushModal({
+          modal: {
+            name: 'simplefin-init',
+            options: {
+              onSuccess: () => setIsSimpleFinSetupComplete(true),
+            },
+          },
         }),
       );
     }
@@ -119,18 +146,117 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
     setLoadingSimpleFinAccounts(false);
   };
 
+  const onConnectPluggyAi = async () => {
+    if (!isPluggyAiSetupComplete) {
+      onPluggyAiInit();
+      return;
+    }
+
+    try {
+      const results = await send('pluggyai-accounts');
+      if (results.error_code) {
+        throw new Error(results.reason);
+      } else if ('error' in results) {
+        throw new Error(results.error);
+      }
+
+      const newAccounts = [];
+
+      type NormalizedAccount = {
+        account_id: string;
+        name: string;
+        institution: string;
+        orgDomain: string | null;
+        orgId: string;
+        balance: number;
+      };
+
+      for (const oldAccount of results.accounts) {
+        const newAccount: NormalizedAccount = {
+          account_id: oldAccount.id,
+          name: `${oldAccount.name.trim()} - ${oldAccount.type === 'BANK' ? oldAccount.taxNumber : oldAccount.owner}`,
+          institution: oldAccount.name,
+          orgDomain: null,
+          orgId: oldAccount.id,
+          balance:
+            oldAccount.type === 'BANK'
+              ? oldAccount.bankData.automaticallyInvestedBalance +
+                oldAccount.bankData.closingBalance
+              : oldAccount.balance,
+        };
+
+        newAccounts.push(newAccount);
+      }
+
+      dispatch(
+        pushModal({
+          modal: {
+            name: 'select-linked-accounts',
+            options: {
+              externalAccounts: newAccounts,
+              syncSource: 'pluggyai',
+            },
+          },
+        }),
+      );
+    } catch (err) {
+      console.error(err);
+      addNotification({
+        notification: {
+          type: 'error',
+          title: t('Error when trying to contact Pluggy.ai'),
+          message: (err as Error).message,
+          timeout: 5000,
+        },
+      });
+      dispatch(
+        pushModal({
+          modal: {
+            name: 'pluggyai-init',
+            options: {
+              onSuccess: () => setIsPluggyAiSetupComplete(true),
+            },
+          },
+        }),
+      );
+    }
+  };
+
   const onGoCardlessInit = () => {
     dispatch(
-      pushModal('gocardless-init', {
-        onSuccess: () => setIsGoCardlessSetupComplete(true),
+      pushModal({
+        modal: {
+          name: 'gocardless-init',
+          options: {
+            onSuccess: () => setIsGoCardlessSetupComplete(true),
+          },
+        },
       }),
     );
   };
 
   const onSimpleFinInit = () => {
     dispatch(
-      pushModal('simplefin-init', {
-        onSuccess: () => setIsSimpleFinSetupComplete(true),
+      pushModal({
+        modal: {
+          name: 'simplefin-init',
+          options: {
+            onSuccess: () => setIsSimpleFinSetupComplete(true),
+          },
+        },
+      }),
+    );
+  };
+
+  const onPluggyAiInit = () => {
+    dispatch(
+      pushModal({
+        modal: {
+          name: 'pluggyai-init',
+          options: {
+            onSuccess: () => setIsPluggyAiSetupComplete(true),
+          },
+        },
       }),
     );
   };
@@ -163,8 +289,27 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
     });
   };
 
+  const onPluggyAiReset = () => {
+    send('secret-set', {
+      name: 'pluggyai_clientId',
+      value: null,
+    }).then(() => {
+      send('secret-set', {
+        name: 'pluggyai_clientSecret',
+        value: null,
+      }).then(() => {
+        send('secret-set', {
+          name: 'pluggyai_itemIds',
+          value: null,
+        }).then(() => {
+          setIsPluggyAiSetupComplete(false);
+        });
+      });
+    });
+  };
+
   const onCreateLocalAccount = () => {
-    dispatch(pushModal('add-local-account'));
+    dispatch(pushModal({ modal: { name: 'add-local-account' } }));
   };
 
   const { configuredGoCardless } = useGoCardlessStatus();
@@ -177,12 +322,17 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
     setIsSimpleFinSetupComplete(configuredSimpleFin);
   }, [configuredSimpleFin]);
 
-  let title = t('Add Account');
+  const { configuredPluggyAi } = usePluggyAiStatus();
+  useEffect(() => {
+    setIsPluggyAiSetupComplete(configuredPluggyAi);
+  }, [configuredPluggyAi]);
+
+  let title = t('Add account');
   const [loadingSimpleFinAccounts, setLoadingSimpleFinAccounts] =
     useState(false);
 
   if (upgradingAccountId != null) {
-    title = t('Link Account');
+    title = t('Link account');
   }
 
   const canSetSecrets =
@@ -209,23 +359,23 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
                     }}
                     onPress={onCreateLocalAccount}
                   >
-                    {t('Create local account')}
+                    <Trans>Create a local account</Trans>
                   </Button>
                 </InitialFocus>
                 <View style={{ lineHeight: '1.4em', fontSize: 15 }}>
                   <Text>
-                    <strong>{t('Create a local account')}</strong>{' '}
-                    {t(
-                      'if you want to add transactions manually. You can also',
-                    )}{' '}
-                    <Link
-                      variant="external"
-                      to="https://actualbudget.org/docs/transactions/importing"
-                      linkColor="muted"
-                    >
-                      {t('import QIF/OFX/QFX files into a local account')}
-                    </Link>
-                    .
+                    <Trans>
+                      <strong>Create a local account</strong> if you want to add
+                      transactions manually. You can also{' '}
+                      <Link
+                        variant="external"
+                        to="https://actualbudget.org/docs/transactions/importing"
+                        linkColor="muted"
+                      >
+                        import QIF/OFX/QFX files into a local account
+                      </Link>
+                      .
+                    </Trans>
                   </Text>
                 </View>
               </View>
@@ -270,31 +420,34 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
                             </Button>
 
                             <Popover>
-                              <Menu
-                                onMenuSelect={item => {
-                                  if (item === 'reconfigure') {
-                                    onGoCardlessReset();
-                                  }
-                                }}
-                                items={[
-                                  {
-                                    name: 'reconfigure',
-                                    text: t('Reset GoCardless credentials'),
-                                  },
-                                ]}
-                              />
+                              <Dialog>
+                                <Menu
+                                  onMenuSelect={item => {
+                                    if (item === 'reconfigure') {
+                                      onGoCardlessReset();
+                                    }
+                                  }}
+                                  items={[
+                                    {
+                                      name: 'reconfigure',
+                                      text: t('Reset GoCardless credentials'),
+                                    },
+                                  ]}
+                                />
+                              </Dialog>
                             </Popover>
                           </DialogTrigger>
                         )}
                       </View>
                       <Text style={{ lineHeight: '1.4em', fontSize: 15 }}>
-                        <strong>
-                          {t('Link a')} <em>{t('European')}</em>{' '}
-                          {t('bank account')}
-                        </strong>{' '}
-                        {t(
-                          'to automatically download transactions. GoCardless provides reliable, up-to-date information from hundreds of banks.',
-                        )}
+                        <Trans>
+                          <strong>
+                            Link a <em>European</em> bank account
+                          </strong>{' '}
+                          to automatically download transactions. GoCardless
+                          provides reliable, up-to-date information from
+                          hundreds of banks.
+                        </Trans>
                       </Text>
                       <View
                         style={{
@@ -332,35 +485,110 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
                               />
                             </Button>
                             <Popover>
-                              <Menu
-                                onMenuSelect={item => {
-                                  if (item === 'reconfigure') {
-                                    onSimpleFinReset();
-                                  }
-                                }}
-                                items={[
-                                  {
-                                    name: 'reconfigure',
-                                    text: t('Reset SimpleFIN credentials'),
-                                  },
-                                ]}
-                              />
+                              <Dialog>
+                                <Menu
+                                  onMenuSelect={item => {
+                                    if (item === 'reconfigure') {
+                                      onSimpleFinReset();
+                                    }
+                                  }}
+                                  items={[
+                                    {
+                                      name: 'reconfigure',
+                                      text: t('Reset SimpleFIN credentials'),
+                                    },
+                                  ]}
+                                />
+                              </Dialog>
                             </Popover>
                           </DialogTrigger>
                         )}
                       </View>
                       <Text style={{ lineHeight: '1.4em', fontSize: 15 }}>
-                        <strong>
-                          {t('Link a')} <em>{t('North American')}</em>
-                          {t(' bank account')}
-                        </strong>{' '}
-                        {t(
-                          'to automatically download transactions. SimpleFIN provides reliable, up-to-date information from hundreds of banks.',
-                        )}{' '}
+                        <Trans>
+                          <strong>
+                            Link a <em>North American</em> bank account
+                          </strong>{' '}
+                          to automatically download transactions. SimpleFIN
+                          provides reliable, up-to-date information from
+                          hundreds of banks.
+                        </Trans>
                       </Text>
+                      {isPluggyAiEnabled && (
+                        <>
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              gap: 10,
+                              alignItems: 'center',
+                            }}
+                          >
+                            <ButtonWithLoading
+                              isDisabled={syncServerStatus !== 'online'}
+                              style={{
+                                padding: '10px 0',
+                                fontSize: 15,
+                                fontWeight: 600,
+                                flex: 1,
+                              }}
+                              onPress={onConnectPluggyAi}
+                            >
+                              {isPluggyAiSetupComplete
+                                ? t('Link bank account with Pluggy.ai')
+                                : t('Set up Pluggy.ai for bank sync')}
+                            </ButtonWithLoading>
+                            {isPluggyAiSetupComplete && (
+                              <DialogTrigger>
+                                <Button
+                                  variant="bare"
+                                  aria-label={t('Pluggy.ai menu')}
+                                >
+                                  <SvgDotsHorizontalTriple
+                                    width={15}
+                                    height={15}
+                                    style={{ transform: 'rotateZ(90deg)' }}
+                                  />
+                                </Button>
+
+                                <Popover>
+                                  <Dialog>
+                                    <Menu
+                                      onMenuSelect={item => {
+                                        if (item === 'reconfigure') {
+                                          onPluggyAiReset();
+                                        }
+                                      }}
+                                      items={[
+                                        {
+                                          name: 'reconfigure',
+                                          text: t(
+                                            'Reset Pluggy.ai credentials',
+                                          ),
+                                        },
+                                      ]}
+                                    />
+                                  </Dialog>
+                                </Popover>
+                              </DialogTrigger>
+                            )}
+                          </View>
+                          <Text style={{ lineHeight: '1.4em', fontSize: 15 }}>
+                            <Trans>
+                              <strong>
+                                Link a <em>Brazilian</em> bank account
+                              </strong>{' '}
+                              to automatically download transactions. Pluggy.ai
+                              provides reliable, up-to-date information from
+                              hundreds of banks.
+                            </Trans>
+                          </Text>
+                        </>
+                      )}
                     </>
                   )}
-                  {(!isGoCardlessSetupComplete || !isSimpleFinSetupComplete) &&
+                  {(!isGoCardlessSetupComplete ||
+                    !isSimpleFinSetupComplete ||
+                    !isPluggyAiSetupComplete) &&
                     !canSetSecrets && (
                       <Warning>
                         <Trans>
@@ -370,6 +598,7 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
                         {[
                           isGoCardlessSetupComplete ? '' : 'GoCardless',
                           isSimpleFinSetupComplete ? '' : 'SimpleFin',
+                          isPluggyAiSetupComplete ? '' : 'Pluggy.ai',
                         ]
                           .filter(Boolean)
                           .join(' or ')}
@@ -387,18 +616,20 @@ export function CreateAccountModal({ upgradingAccountId }: CreateAccountProps) {
                       fontWeight: 600,
                     }}
                   >
-                    {t('Set up bank sync')}
+                    <Trans>Set up bank sync</Trans>
                   </Button>
                   <Paragraph style={{ fontSize: 15 }}>
-                    {t('Connect to an Actual server to set up')}{' '}
-                    <Link
-                      variant="external"
-                      to="https://actualbudget.org/docs/advanced/bank-sync"
-                      linkColor="muted"
-                    >
-                      {t('automatic syncing')}
-                    </Link>
-                    .
+                    <Trans>
+                      Connect to an Actual server to set up{' '}
+                      <Link
+                        variant="external"
+                        to="https://actualbudget.org/docs/advanced/bank-sync"
+                        linkColor="muted"
+                      >
+                        automatic syncing
+                      </Link>
+                      .
+                    </Trans>
                   </Paragraph>
                 </>
               )}

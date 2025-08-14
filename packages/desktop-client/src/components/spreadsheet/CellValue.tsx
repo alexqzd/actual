@@ -5,20 +5,19 @@ import React, {
   type CSSProperties,
 } from 'react';
 
-import { styles } from '../../style';
-import { Text } from '../common/Text';
-import { PrivacyFilter } from '../PrivacyFilter';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
 
-import { type FormatType, useFormat } from './useFormat';
-import { useSheetName } from './useSheetName';
-import { useSheetValue } from './useSheetValue';
-
+import { PrivacyFilter } from '@desktop-client/components/PrivacyFilter';
+import { type FormatType, useFormat } from '@desktop-client/hooks/useFormat';
+import { useSheetName } from '@desktop-client/hooks/useSheetName';
+import { useSheetValue } from '@desktop-client/hooks/useSheetValue';
 import {
   type Binding,
   type SheetNames,
   type SheetFields,
   type Spreadsheets,
-} from '.';
+} from '@desktop-client/spreadsheet';
 
 type CellValueProps<
   SheetName extends SheetNames,
@@ -44,7 +43,7 @@ export function CellValue<
   const { fullSheetName } = useSheetName(binding);
   const sheetValue = useSheetValue(binding);
 
-  return children ? (
+  return typeof children === 'function' ? (
     <>{children({ type, name: fullSheetName, value: sheetValue })}</>
   ) : (
     <CellValueText
@@ -84,10 +83,15 @@ export function CellValueText<
   ...props
 }: CellValueTextProps<SheetName, FieldName>) {
   const format = useFormat();
+  const isFinancial =
+    type === 'financial' ||
+    type === 'financial-with-sign' ||
+    type === 'financial-no-decimals';
   return (
     <Text
       style={{
-        ...(type === 'financial' && styles.tnum),
+        ...(isFinancial && styles.tnum),
+        ...(isFinancial && { whiteSpace: 'nowrap' }),
         ...style,
       }}
       data-testid={name}

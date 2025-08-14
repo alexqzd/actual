@@ -1,22 +1,23 @@
 // @ts-strict-ignore
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
-import { createBudget } from 'loot-core/src/client/actions/budgets';
-import { send } from 'loot-core/src/platform/client/fetch';
+import { Button } from '@actual-app/components/button';
+import { Paragraph } from '@actual-app/components/paragraph';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { useNavigate } from '../../../hooks/useNavigate';
-import { theme } from '../../../style';
-import { Button } from '../../common/Button2';
-import { Link } from '../../common/Link';
-import { Paragraph } from '../../common/Paragraph';
-import { Text } from '../../common/Text';
-import { View } from '../../common/View';
-import { useRefreshLoginMethods } from '../../ServerContext';
+import { send } from 'loot-core/platform/client/fetch';
 
 import { useBootstrapped, Title } from './common';
 import { ConfirmPasswordForm } from './ConfirmPasswordForm';
+
+import { createBudget } from '@desktop-client/budgets/budgetsSlice';
+import { Link } from '@desktop-client/components/common/Link';
+import { useRefreshLoginMethods } from '@desktop-client/components/ServerContext';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { useDispatch } from '@desktop-client/redux';
 
 export function Bootstrap() {
   const { t } = useTranslation();

@@ -1,9 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { SvgCalendar } from '../../icons/v2';
-import { theme } from '../../style';
-import { View } from '../common/View';
+import { SvgCalendar } from '@actual-app/components/icons/v2';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
 import { useBudgetMonthCount } from './BudgetMonthCountContext';
 

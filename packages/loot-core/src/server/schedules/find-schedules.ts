@@ -7,13 +7,11 @@ import { q } from '../../shared/query';
 import { getApproxNumberThreshold } from '../../shared/rules';
 import { recurConfigToRSchedule } from '../../shared/schedules';
 import { groupBy } from '../../shared/util';
-import { conditionsToAQL } from '../accounts/transaction-rules';
-import { runQuery as aqlQuery } from '../aql';
+import { aqlQuery } from '../aql';
 import * as db from '../db';
 import { fromDateRepr } from '../models';
+import { conditionsToAQL } from '../transactions/transaction-rules';
 import { Schedule as RSchedule } from '../util/rschedule';
-
-import { SchedulesHandlers } from './types/handlers';
 
 function takeDates(config) {
   const schedule = new RSchedule({ rrules: recurConfigToRSchedule(config) });
@@ -337,8 +335,8 @@ export async function findSchedules() {
 
   for (const account of accounts) {
     // Find latest transaction-ish to start with
-    const latestTrans = await db.first(
-      'SELECT * FROM v_transactions WHERE account = ? AND parent_id IS NULL ORDER BY date DESC LIMIT 1',
+    const latestTrans = await db.first<Pick<db.DbViewTransaction, 'date'>>(
+      'SELECT date FROM v_transactions WHERE account = ? AND parent_id IS NULL ORDER BY date DESC LIMIT 1',
       [account.id],
     );
 
@@ -385,8 +383,7 @@ export async function findSchedules() {
     },
   );
 
-  const finalized: Awaited<ReturnType<SchedulesHandlers['schedule/discover']>> =
-    [];
+  const finalized: Awaited<ReturnType<typeof findStartDate>> = [];
   for (const schedule of schedules) {
     finalized.push(await findStartDate(schedule));
   }

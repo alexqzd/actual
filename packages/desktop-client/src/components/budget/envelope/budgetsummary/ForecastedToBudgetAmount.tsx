@@ -2,30 +2,26 @@ import React, { type CSSProperties } from 'react';
 
 import { css } from '@emotion/css';
 
-import { envelopeBudget } from 'loot-core/src/client/queries';
+import { envelopeBudget } from '../../../../../../desktop-client/src/spreadsheet/bindings';
 
-import { theme, styles } from '../../../../style';
-import { Block } from '../../../common/Block';
-import { Tooltip } from '../../../common/Tooltip';
-import { View } from '../../../common/View';
+import { styles } from '../../../../../../component-library/src/styles';
+import { theme } from '../../../../../../component-library/src/theme';
+import { Block } from '../../../../../../component-library/src/Block';
+import { View } from '../../../../../../component-library/src/View';
 import { PrivacyFilter } from '../../../PrivacyFilter';
-import { useFormat } from '../../../spreadsheet/useFormat';
-import { useSheetName } from '../../../spreadsheet/useSheetName';
-import { useSheetValue } from '../../../spreadsheet/useSheetValue';
+import { useFormat } from '../../../../../../desktop-client/src/hooks/useFormat';
 
-import { TotalsList } from './TotalsList';
 
 import { useMemo } from 'react';
 
-import { useSchedules } from 'loot-core/src/client/data-hooks/schedules';
+import { useSchedules } from '@desktop-client/hooks/useSchedules';
 
 import { currentDate, monthFromDate } from 'loot-core/shared/months';
 
-import { recurConfigToRSchedule } from 'loot-core/src/shared/schedules';
-import { Schedule as RSchedule } from 'loot-core/src/server/util/rschedule';
+import { recurConfigToRSchedule } from 'loot-core/shared/schedules';
+import { Schedule as RSchedule } from 'loot-core/server/util/rschedule';
 import * as d from 'date-fns';
-import { dayFromDate } from 'loot-core/src/shared/months';
-import { captureBreadcrumb } from 'loot-core/src/platform/exceptions';
+import { captureBreadcrumb } from 'loot-core/platform/exceptions';
 import { q } from 'loot-core/shared/query';
 import { useEnvelopeSheetName, useEnvelopeSheetValue } from '../EnvelopeBudgetComponents';
 

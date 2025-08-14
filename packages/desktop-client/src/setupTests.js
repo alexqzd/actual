@@ -1,6 +1,6 @@
-import { resetStore } from 'loot-core/src/mocks/redux';
-
+import '@testing-library/jest-dom';
 import { installPolyfills } from './polyfills';
+import { resetMockStore } from './redux/mock';
 
 installPolyfills();
 
@@ -16,11 +16,11 @@ vi.mock('react-virtualized-auto-sizer', () => ({
 global.Date.now = () => 123456789;
 
 global.__resetWorld = () => {
-  resetStore();
+  resetMockStore();
 };
 
 process.on('unhandledRejection', reason => {
-  console.log('REJECTION', reason);
+  console.error('REJECTION', reason);
 });
 
 global.afterEach(() => {

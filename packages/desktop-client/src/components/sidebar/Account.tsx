@@ -1,39 +1,43 @@
 // @ts-strict-ignore
 import React, { type CSSProperties, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
 
+import { AlignedText } from '@actual-app/components/aligned-text';
+import { InitialFocus } from '@actual-app/components/initial-focus';
+import { Input } from '@actual-app/components/input';
+import { Menu } from '@actual-app/components/menu';
+import { Popover } from '@actual-app/components/popover';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { Tooltip } from '@actual-app/components/tooltip';
+import { View } from '@actual-app/components/view';
 import { css, cx } from '@emotion/css';
 
-import {
-  openAccountCloseModal,
-  reopenAccount,
-  updateAccount,
-} from 'loot-core/client/actions';
-import * as Platform from 'loot-core/client/platform';
-import { type AccountEntity } from 'loot-core/src/types/models';
+import * as Platform from 'loot-core/shared/platform';
+import { type AccountEntity } from 'loot-core/types/models';
 
-import { useContextMenu } from '../../hooks/useContextMenu';
-import { useNotes } from '../../hooks/useNotes';
-import { styles, theme } from '../../style';
-import { AlignedText } from '../common/AlignedText';
-import { InitialFocus } from '../common/InitialFocus';
-import { Input } from '../common/Input';
-import { Link } from '../common/Link';
-import { Menu } from '../common/Menu';
-import { Popover } from '../common/Popover';
-import { Text } from '../common/Text';
-import { Tooltip } from '../common/Tooltip';
-import { View } from '../common/View';
-import { Notes } from '../Notes';
+import { BalanceHistoryGraph } from './BalanceHistoryGraph';
+
+import { Link } from '@desktop-client/components/common/Link';
+import { Notes } from '@desktop-client/components/Notes';
 import {
+  DropHighlight,
   useDraggable,
   useDroppable,
-  DropHighlight,
   type OnDragChangeCallback,
   type OnDropCallback,
-} from '../sort';
-import { type SheetFields, type Binding } from '../spreadsheet';
-import { CellValue } from '../spreadsheet/CellValue';
+} from '@desktop-client/components/sort';
+import { CellValue } from '@desktop-client/components/spreadsheet/CellValue';
+import { useContextMenu } from '@desktop-client/hooks/useContextMenu';
+import { useDragRef } from '@desktop-client/hooks/useDragRef';
+import { useNotes } from '@desktop-client/hooks/useNotes';
+import { openAccountCloseModal } from '@desktop-client/modals/modalsSlice';
+import {
+  reopenAccount,
+  updateAccount,
+} from '@desktop-client/queries/queriesSlice';
+import { useDispatch } from '@desktop-client/redux';
+import { type SheetFields, type Binding } from '@desktop-client/spreadsheet';
 
 export const accountNameStyle: CSSProperties = {
   marginTop: -2,
@@ -61,6 +65,7 @@ type AccountProps<FieldName extends SheetFields<'account'>> = {
   outerStyle?: CSSProperties;
   onDragChange?: OnDragChangeCallback<{ id: string }>;
   onDrop?: OnDropCallback;
+  titleAccount?: boolean;
 };
 
 export function Account<FieldName extends SheetFields<'account'>>({
@@ -76,6 +81,7 @@ export function Account<FieldName extends SheetFields<'account'>>({
   outerStyle,
   onDragChange,
   onDrop,
+  titleAccount,
 }: AccountProps<FieldName>) {
   const type = account
     ? account.closed
@@ -95,6 +101,7 @@ export function Account<FieldName extends SheetFields<'account'>>({
     item: { id: account && account.id },
     canDrag: account != null,
   });
+  const handleDragRef = useDragRef(dragRef);
 
   const { dropRef, dropPos } = useDroppable({
     types: account ? [type] : [],
@@ -107,7 +114,10 @@ export function Account<FieldName extends SheetFields<'account'>>({
   const [isEditing, setIsEditing] = useState(false);
 
   const accountNote = useNotes(`account-${account?.id}`);
-  const needsTooltip = !!account?.id;
+  const isTouchDevice =
+    window.matchMedia('(hover: none)').matches ||
+    window.matchMedia('(pointer: coarse)').matches;
+  const needsTooltip = !!account?.id && !isTouchDevice;
 
   const accountRow = (
     <View
@@ -117,7 +127,7 @@ export function Account<FieldName extends SheetFields<'account'>>({
     >
       <View innerRef={triggerRef}>
         <DropHighlight pos={dropPos} />
-        <View innerRef={dragRef}>
+        <View innerRef={handleDragRef}>
           <Link
             variant="internal"
             to={to}
@@ -177,7 +187,7 @@ export function Account<FieldName extends SheetFields<'account'>>({
 
             <AlignedText
               style={
-                (name === 'Off budget' || name === 'On budget') && {
+                titleAccount && {
                   borderBottom: `1.5px solid rgba(255,255,255,0.4)`,
                   paddingBottom: '3px',
                 }
@@ -191,14 +201,14 @@ export function Account<FieldName extends SheetFields<'account'>>({
                         width: '100%',
                       }}
                       onBlur={() => setIsEditing(false)}
-                      onEnter={e => {
-                        const inputEl = e.target as HTMLInputElement;
-                        const newAccountName = inputEl.value;
+                      onEnter={newAccountName => {
                         if (newAccountName.trim() !== '') {
                           dispatch(
                             updateAccount({
-                              ...account,
-                              name: newAccountName,
+                              account: {
+                                ...account,
+                                name: newAccountName,
+                              },
                             }),
                           );
                         }
@@ -229,11 +239,13 @@ export function Account<FieldName extends SheetFields<'account'>>({
                 onMenuSelect={type => {
                   switch (type) {
                     case 'close': {
-                      dispatch(openAccountCloseModal(account.id));
+                      dispatch(
+                        openAccountCloseModal({ accountId: account.id }),
+                      );
                       break;
                     }
                     case 'reopen': {
-                      dispatch(reopenAccount(account.id));
+                      dispatch(reopenAccount({ id: account.id }));
                       break;
                     }
                     case 'rename': {
@@ -272,16 +284,18 @@ export function Account<FieldName extends SheetFields<'account'>>({
           <Text
             style={{
               fontWeight: 'bold',
-              borderBottom: accountNote ? `1px solid ${theme.tableBorder}` : 0,
-              marginBottom: accountNote ? '0.5rem' : 0,
             }}
           >
             {name}
           </Text>
+          {account && <BalanceHistoryGraph accountId={account.id} />}
           {accountNote && (
             <Notes
               getStyle={() => ({
+                borderTop: `1px solid ${theme.tableBorder}`,
                 padding: 0,
+                paddingTop: '0.5rem',
+                marginTop: '0.5rem',
               })}
               notes={accountNote}
             />

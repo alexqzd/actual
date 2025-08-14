@@ -1,22 +1,23 @@
 import React, { type ReactNode, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
-import { closeBudget } from 'loot-core/src/client/actions';
-import * as Platform from 'loot-core/src/client/platform';
+import { Button } from '@actual-app/components/button';
+import { SvgExpandArrow } from '@actual-app/components/icons/v0';
+import { InitialFocus } from '@actual-app/components/initial-focus';
+import { Input } from '@actual-app/components/input';
+import { Menu } from '@actual-app/components/menu';
+import { Popover } from '@actual-app/components/popover';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { useContextMenu } from '../../hooks/useContextMenu';
-import { useMetadataPref } from '../../hooks/useMetadataPref';
-import { useNavigate } from '../../hooks/useNavigate';
-import { SvgExpandArrow } from '../../icons/v0';
-import { theme } from '../../style';
-import { Button } from '../common/Button2';
-import { InitialFocus } from '../common/InitialFocus';
-import { Input } from '../common/Input';
-import { Menu } from '../common/Menu';
-import { Popover } from '../common/Popover';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
+import * as Platform from 'loot-core/shared/platform';
+
+import { closeBudget } from '@desktop-client/budgets/budgetsSlice';
+import { useContextMenu } from '@desktop-client/hooks/useContextMenu';
+import { useMetadataPref } from '@desktop-client/hooks/useMetadataPref';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { useDispatch } from '@desktop-client/redux';
 
 type BudgetNameProps = {
   children?: ReactNode;
@@ -35,10 +36,12 @@ export function BudgetName({ children }: BudgetNameProps) {
         margin: '0 8px 23px 20px',
         userSelect: 'none',
         transition: 'padding .4s',
-        ...(hasWindowButtons && {
-          paddingTop: 20,
-          justifyContent: 'flex-start',
-        }),
+        ...(hasWindowButtons
+          ? {
+              paddingTop: 20,
+              justifyContent: 'flex-start',
+            }
+          : {}),
       }}
     >
       <EditableBudgetName />
@@ -80,7 +83,7 @@ function EditableBudgetName() {
   const items = [
     { name: 'rename', text: t('Rename budget') },
     { name: 'settings', text: t('Settings') },
-    { name: 'close', text: t('Close file') },
+    { name: 'close', text: t('Switch file') },
   ];
 
   if (editing) {
@@ -93,9 +96,7 @@ function EditableBudgetName() {
             fontWeight: 500,
           }}
           defaultValue={budgetName}
-          onEnter={e => {
-            const inputEl = e.target as HTMLInputElement;
-            const newBudgetName = inputEl.value;
+          onEnter={newBudgetName => {
             if (newBudgetName.trim() !== '') {
               setBudgetNamePref(newBudgetName);
               setEditing(false);
@@ -125,7 +126,7 @@ function EditableBudgetName() {
         }}
       >
         <Text style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>
-          {budgetName || t('A budget has no name')}
+          {budgetName || t('Unnamed')}
         </Text>
         <SvgExpandArrow
           width={7}

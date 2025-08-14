@@ -5,19 +5,19 @@ import React, {
   useState,
 } from 'react';
 
-import { envelopeBudget } from 'loot-core/src/client/queries';
-
-import { useContextMenu } from '../../../../hooks/useContextMenu';
-import { Popover } from '../../../common/Popover';
-import { View } from '../../../common/View';
-import { CoverMenu } from '../CoverMenu';
-import { useEnvelopeSheetValue } from '../EnvelopeBudgetComponents';
-import { HoldMenu } from '../HoldMenu';
-import { TransferMenu } from '../TransferMenu';
+import { Popover } from '@actual-app/components/popover';
+import { View } from '@actual-app/components/view';
 
 import { ToBudgetAmount } from './ToBudgetAmount';
 import { ToBudgetMenu } from './ToBudgetMenu';
 import { ForecastedToBudgetAmount } from './ForecastedToBudgetAmount';
+
+import { CoverMenu } from '@desktop-client/components/budget/envelope/CoverMenu';
+import { useEnvelopeSheetValue } from '@desktop-client/components/budget/envelope/EnvelopeBudgetComponents';
+import { HoldMenu } from '@desktop-client/components/budget/envelope/HoldMenu';
+import { TransferMenu } from '@desktop-client/components/budget/envelope/TransferMenu';
+import { useContextMenu } from '@desktop-client/hooks/useContextMenu';
+import { envelopeBudget } from '@desktop-client/spreadsheet/bindings';
 
 type ToBudgetProps = {
   month: string;
@@ -71,20 +71,18 @@ export function ToBudget({
   return (
     <>
       <View ref={triggerRef}>
-
         {showToBudget && (
-          <ToBudgetAmount
-            onClick={() => setMenuOpen('actions')}
-            prevMonthName={prevMonthName}
-            style={style}
-            amountStyle={amountStyle}
-            isTotalsListTooltipDisabled={!isCollapsed || menuOpen}
-            onContextMenu={e => {
-              if (!contextMenusEnabled) return;
-              e.preventDefault();
-              setMenuOpen('actions');
-            }}
-          />
+        <ToBudgetAmount
+          onClick={() => {
+            resetPosition();
+            setMenuOpen(true);
+          }}
+          prevMonthName={prevMonthName}
+          style={style}
+          amountStyle={amountStyle}
+          isTotalsListTooltipDisabled={!isCollapsed || menuOpen}
+          onContextMenu={handleContextMenu}
+        />
         )}
 
         {showToBudget && showForecastedToBudget && <View style={{ height: 8 }} />}
@@ -123,6 +121,8 @@ export function ToBudget({
                 onBudgetAction(month, 'reset-hold');
                 setMenuOpen(false);
               }}
+              month={month}
+              onBudgetAction={onBudgetAction}
             />
           )}
           {menuStep === 'buffer' && (

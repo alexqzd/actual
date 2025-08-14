@@ -1,11 +1,13 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans } from 'react-i18next';
 
-import { theme } from '../../style/theme';
-import { Button } from '../common/Button2';
-import { Stack } from '../common/Stack';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
+import { Button } from '@actual-app/components/button';
+import { Stack } from '@actual-app/components/stack';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
+import { type TransObjectLiteral } from 'loot-core/types/util';
 
 type SaveReportDeleteProps = {
   onDelete: () => void;
@@ -18,14 +20,18 @@ export function SaveReportDelete({
   onClose,
   name,
 }: SaveReportDeleteProps) {
-  const { t } = useTranslation();
   return (
     <>
       <View style={{ align: 'center' }}>
         <Text style={{ color: theme.errorText, marginBottom: 5 }}>
-          {t('Are you sure you want to delete report:')}
+          <Trans>
+            Are you sure you want to delete the report named{' ‘'}
+            <Text style={{ display: 'inline' }}>
+              {{ name } as TransObjectLiteral}
+            </Text>
+            ’?
+          </Trans>
         </Text>
-        <View>{name}</View>
       </View>
 
       <Stack
@@ -36,10 +42,10 @@ export function SaveReportDelete({
       >
         <View style={{ flex: 1 }} />
         <Button variant="primary" autoFocus onPress={onDelete}>
-          {t('Yes')}
+          <Trans>Yes</Trans>
         </Button>
         <Button variant="primary" onPress={onClose}>
-          {t('No')}
+          <Trans>No</Trans>
         </Button>
       </Stack>
     </>

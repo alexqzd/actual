@@ -1,18 +1,27 @@
-import React, { useState, useRef, useEffect, useReducer } from 'react';
+import React, { useState, useRef, useEffect, useReducer, useMemo } from 'react';
 import { FocusScope } from 'react-aria';
 import { Form } from 'react-aria-components';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { Button } from '@actual-app/components/button';
+import { Menu } from '@actual-app/components/menu';
+import { Popover } from '@actual-app/components/popover';
+import { Select } from '@actual-app/components/select';
+import { Stack } from '@actual-app/components/stack';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { Tooltip } from '@actual-app/components/tooltip';
+import { View } from '@actual-app/components/view';
 import {
   parse as parseDate,
   format as formatDate,
   isValid as isDateValid,
 } from 'date-fns';
 
-import { useFilters } from 'loot-core/src/client/data-hooks/filters';
-import { send } from 'loot-core/src/platform/client/fetch';
-import { getMonthYearFormat } from 'loot-core/src/shared/months';
+import { send } from 'loot-core/platform/client/fetch';
+import { getMonthYearFormat } from 'loot-core/shared/months';
 import {
   mapField,
   deserializeField,
@@ -20,20 +29,8 @@ import {
   unparse,
   FIELD_TYPES,
   getValidOps,
-} from 'loot-core/src/shared/rules';
-import { titleFirst } from 'loot-core/src/shared/util';
-
-import { useDateFormat } from '../../hooks/useDateFormat';
-import { styles, theme } from '../../style';
-import { Button } from '../common/Button2';
-import { Menu } from '../common/Menu';
-import { Popover } from '../common/Popover';
-import { Select } from '../common/Select';
-import { Stack } from '../common/Stack';
-import { Text } from '../common/Text';
-import { Tooltip } from '../common/Tooltip';
-import { View } from '../common/View';
-import { GenericInput } from '../util/GenericInput';
+} from 'loot-core/shared/rules';
+import { titleFirst } from 'loot-core/shared/util';
 
 import { CompactFiltersButton } from './CompactFiltersButton';
 import { FiltersButton } from './FiltersButton';
@@ -41,6 +38,10 @@ import { OpButton } from './OpButton';
 import { subfieldFromFilter } from './subfieldFromFilter';
 import { subfieldToOptions } from './subfieldToOptions';
 import { updateFilterReducer } from './updateFilterReducer';
+
+import { GenericInput } from '@desktop-client/components/util/GenericInput';
+import { useDateFormat } from '@desktop-client/hooks/useDateFormat';
+import { useTransactionFilters } from '@desktop-client/hooks/useTransactionFilters';
 
 let isDatepickerClick = false;
 
@@ -85,6 +86,18 @@ function ConfigureField({
   if (subfield === 'month' || subfield === 'year') {
     ops = ['is'];
   }
+
+  const formattedValue = useMemo(() => {
+    if (
+      field === 'date' &&
+      subfield === 'month' &&
+      /^\d{4}-\d{2}$/.test(value)
+    ) {
+      const [year, month] = value.split('-');
+      return `${month}/${year}`;
+    }
+    return value;
+  }, [value, field, subfield]);
 
   return (
     <FocusScope>
@@ -218,7 +231,7 @@ function ConfigureField({
       >
         {type !== 'boolean' && (
           <GenericInput
-            inputRef={inputRef}
+            ref={inputRef}
             field={field}
             subfield={subfield}
             type={
@@ -230,7 +243,7 @@ function ConfigureField({
                 ? 'string'
                 : type
             }
-            value={value}
+            value={formattedValue}
             multi={op === 'oneOf' || op === 'notOneOf'}
             op={op}
             style={{ marginTop: 10 }}
@@ -258,10 +271,22 @@ function ConfigureField({
 
 export function FilterButton({ onApply, compact, hover, exclude }) {
   const { t } = useTranslation();
-  const filters = useFilters();
+  const filters = useTransactionFilters();
   const triggerRef = useRef(null);
 
   const dateFormat = useDateFormat() || 'MM/dd/yyyy';
+
+  const translatedFilterFields = useMemo(() => {
+    const retValue = [...filterFields];
+
+    if (retValue && retValue.length > 0) {
+      retValue.forEach(field => {
+        field[1] = mapField(field[0]);
+      });
+    }
+
+    return retValue;
+  }, []);
 
   const [state, dispatch] = useReducer(
     (state, action) => {
@@ -378,7 +403,7 @@ export function FilterButton({ onApply, compact, hover, exclude }) {
           onMenuSelect={name => {
             dispatch({ type: 'configure', field: name });
           }}
-          items={filterFields
+          items={translatedFilterFields
             .filter(f => (exclude ? !exclude.includes(f[0]) : true))
             .sort()
             .map(([name, text]) => ({
@@ -428,6 +453,9 @@ export function FilterButton({ onApply, compact, hover, exclude }) {
 }
 
 export function FilterEditor({ field, op, value, options, onSave, onClose }) {
+  const dateFormat = useDateFormat() || 'MM/dd/yyyy';
+  const { t } = useTranslation();
+
   const [state, dispatch] = useReducer(
     (state, action) => {
       switch (action.type) {
@@ -451,6 +479,31 @@ export function FilterEditor({ field, op, value, options, onSave, onClose }) {
       dispatch={dispatch}
       onApply={cond => {
         cond = unparse({ ...cond, type: FIELD_TYPES.get(cond.field) });
+
+        if (cond.type === 'date' && cond.options) {
+          if (cond.options.month && !/\d{4}-\d{2}/.test(cond.value)) {
+            const date = parseDate(
+              cond.value,
+              getMonthYearFormat(dateFormat),
+              new Date(),
+            );
+            if (isDateValid(date)) {
+              cond.value = formatDate(date, 'yyyy-MM');
+            } else {
+              alert(t('Invalid date format'));
+              return;
+            }
+          } else if (cond.options.year) {
+            const date = parseDate(cond.value, 'yyyy', new Date());
+            if (isDateValid(date)) {
+              cond.value = formatDate(date, 'yyyy');
+            } else {
+              alert(t('Invalid date format'));
+              return;
+            }
+          }
+        }
+
         onSave(cond);
         onClose();
       }}

@@ -7,16 +7,16 @@ import React, {
 } from 'react';
 import { useSpring, animated } from 'react-spring';
 
+import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 
-import { addMonths, subMonths } from 'loot-core/src/shared/months';
-
-import { useResizeObserver } from '../../hooks/useResizeObserver';
-import { View } from '../common/View';
+import { addMonths, subMonths } from 'loot-core/shared/months';
 
 import { type BudgetSummary as EnvelopeBudgetSummary } from './envelope/budgetsummary/BudgetSummary';
 import { MonthsContext } from './MonthsContext';
 import { type BudgetSummary as TrackingBudgetSummary } from './tracking/budgetsummary/BudgetSummary';
+
+import { useResizeObserver } from '@desktop-client/hooks/useResizeObserver';
 
 type BudgetSummariesProps = {
   SummaryComponent: typeof TrackingBudgetSummary | typeof EnvelopeBudgetSummary;

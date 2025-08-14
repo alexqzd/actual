@@ -2,16 +2,17 @@
 import React, { useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
-import { send } from 'loot-core/src/platform/client/fetch';
+import { Button } from '@actual-app/components/button';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { useNavigate } from '../../../hooks/useNavigate';
-import { theme } from '../../../style';
-import { Button } from '../../common/Button2';
-import { Text } from '../../common/Text';
-import { View } from '../../common/View';
+import { send } from 'loot-core/platform/client/fetch';
 
 import { Title } from './common';
 import { ConfirmPasswordForm } from './ConfirmPasswordForm';
+
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
 
 export function ChangePassword() {
   const { t } = useTranslation();
@@ -23,13 +24,13 @@ export function ChangePassword() {
   function getErrorMessage(error) {
     switch (error) {
       case 'invalid-password':
-        return 'Password cannot be empty';
+        return t('Password cannot be empty');
       case 'password-match':
-        return 'Passwords do not match';
+        return t('Passwords do not match');
       case 'network-failure':
-        return 'Unable to contact the server';
+        return t('Unable to contact the server');
       default:
-        return 'Internal server error';
+        return t('Internal error');
     }
   }
 

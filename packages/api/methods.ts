@@ -1,5 +1,6 @@
 // @ts-strict-ignore
-import type { Handlers } from 'loot-core/src/types/handlers';
+import type { Handlers } from 'loot-core/types/handlers';
+import type { ImportTransactionEntity } from 'loot-core/types/models/import-transaction';
 
 import * as injected from './injected';
 
@@ -52,7 +53,15 @@ export async function batchBudgetUpdates(func) {
   }
 }
 
+/**
+ * @deprecated Please use `aqlQuery` instead.
+ * This function will be removed in a future release.
+ */
 export function runQuery(query) {
+  return send('api/query', { query: query.serialize() });
+}
+
+export function aqlQuery(query) {
   return send('api/query', { query: query.serialize() });
 }
 
@@ -85,10 +94,21 @@ export function addTransactions(
   });
 }
 
-export function importTransactions(accountId, transactions) {
+export interface ImportTransactionsOpts {
+  defaultCleared?: boolean;
+}
+
+export function importTransactions(
+  accountId: string,
+  transactions: ImportTransactionEntity[],
+  opts: ImportTransactionsOpts = {
+    defaultCleared: true,
+  },
+) {
   return send('api/transactions-import', {
     accountId,
     transactions,
+    opts,
   });
 }
 

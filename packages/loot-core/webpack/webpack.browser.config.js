@@ -62,6 +62,12 @@ module.exports = {
         test: /\.pegjs$/,
         use: { loader: path.resolve(__dirname, '../peg-loader.js') },
       },
+      {
+        test: /\.m?js/,
+        resolve: {
+          fullySpecified: false,
+        },
+      },
     ],
   },
   optimization: {
@@ -77,7 +83,7 @@ module.exports = {
           compress: {
             drop_debugger: false,
           },
-          mangle: true,
+          mangle: false,
         },
       }),
     ],

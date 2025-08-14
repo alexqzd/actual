@@ -1,15 +1,14 @@
 import React, { type ComponentProps, useMemo } from 'react';
 
-import { amountToCurrency } from 'loot-core/src/shared/util';
-import { type CategoryEntity } from 'loot-core/types/models';
+import { SvgDownAndRightArrow } from '@actual-app/components/icons/v2';
+import { Stack } from '@actual-app/components/stack';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { Tooltip } from '@actual-app/components/tooltip';
+import { View } from '@actual-app/components/view';
 
-import { SvgDownAndRightArrow } from '../../../icons/v2';
-import { theme, styles } from '../../../style';
-import { Stack } from '../../common/Stack';
-import { Tooltip } from '../../common/Tooltip';
-import { View } from '../../common/View';
-import { Checkbox } from '../../forms';
-import { Row, Field } from '../../table';
+import { amountToCurrency } from 'loot-core/shared/util';
+import { type CategoryEntity } from 'loot-core/types/models';
 
 import { ParsedDate } from './ParsedDate';
 import {
@@ -20,6 +19,9 @@ import {
   parseAmountFields,
 } from './utils';
 
+import { Checkbox } from '@desktop-client/components/forms';
+import { Row, Field } from '@desktop-client/components/table';
+
 type TransactionProps = {
   transaction: ImportTransaction;
   fieldMappings: FieldMapping;
@@ -28,7 +30,7 @@ type TransactionProps = {
   dateFormat: ComponentProps<typeof ParsedDate>['dateFormat'];
   splitMode: boolean;
   inOutMode: boolean;
-  outValue: number;
+  outValue: string;
   flipAmount: boolean;
   multiplierAmount: string;
   categories: CategoryEntity[];
@@ -126,7 +128,7 @@ export function Transaction({
                             background:
                               theme.checkboxBackgroundSelected +
                               // update sign from packages/desktop-client/src/icons/v1/layer.svg
-                              // eslint-disable-next-line rulesdir/typography
+                              // eslint-disable-next-line actual/typography
                               ' url(\'data:image/svg+xml; utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="white" d="M10 1l10 6-10 6L0 7l10-6zm6.67 10L20 13l-10 6-10-6 3.33-2L10 15l6.67-4z" /></svg>\') 9px 9px',
                           },
                         },
@@ -141,11 +143,11 @@ export function Transaction({
                             background:
                               theme.buttonNormalDisabledBorder +
                               // minus sign adapted from packages/desktop-client/src/icons/v1/add.svg
-                              // eslint-disable-next-line rulesdir/typography
+                              // eslint-disable-next-line actual/typography
                               ' url(\'data:image/svg+xml; utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="white" className="path" d="M23,11.5 L23,11.5 L23,11.5 C23,12.3284271 22.3284271,13 21.5,13 L1.5,13 L1.5,13 C0.671572875,13 1.01453063e-16,12.3284271 0,11.5 L0,11.5 L0,11.5 C-1.01453063e-16,10.6715729 0.671572875,10 1.5,10 L21.5,10 L21.5,10 C22.3284271,10 23,10.6715729 23,11.5 Z" /></svg>\') 9px 9px',
                             width: 9,
                             height: 9,
-                            // eslint-disable-next-line rulesdir/typography
+                            // eslint-disable-next-line actual/typography
                             content: '" "',
                           },
                         },
@@ -156,7 +158,7 @@ export function Transaction({
                             background:
                               theme.checkboxBackgroundSelected +
                               // plus sign from packages/desktop-client/src/icons/v1/add.svg
-                              // eslint-disable-next-line rulesdir/typography
+                              // eslint-disable-next-line actual/typography
                               ' url(\'data:image/svg+xml; utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="white" className="path" d="M23,11.5 L23,11.5 L23,11.5 C23,12.3284271 22.3284271,13 21.5,13 L1.5,13 L1.5,13 C0.671572875,13 1.01453063e-16,12.3284271 0,11.5 L0,11.5 L0,11.5 C-1.01453063e-16,10.6715729 0.671572875,10 1.5,10 L21.5,10 L21.5,10 C22.3284271,10 23,10.6715729 23,11.5 Z" /><path fill="white" className="path" d="M11.5,23 C10.6715729,23 10,22.3284271 10,21.5 L10,1.5 C10,0.671572875 10.6715729,1.52179594e-16 11.5,0 C12.3284271,-1.52179594e-16 13,0.671572875 13,1.5 L13,21.5 C13,22.3284271 12.3284271,23 11.5,23 Z" /></svg>\') 9px 9px',
                           },
                         },
@@ -206,6 +208,19 @@ export function Transaction({
       >
         {categoryList.includes(transaction.category) && transaction.category}
       </Field>
+      {inOutMode && (
+        <Field
+          width={90}
+          contentStyle={{ textAlign: 'left', ...styles.tnum }}
+          title={
+            transaction.inOut === undefined
+              ? undefined
+              : String(transaction.inOut)
+          }
+        >
+          {transaction.inOut}
+        </Field>
+      )}
       {splitMode ? (
         <>
           <Field
@@ -218,12 +233,12 @@ export function Transaction({
                 : {}),
             }}
             title={
-              inflow === null && outflow === null
+              outflow === null
                 ? 'Invalid: unable to parse the value'
                 : amountToCurrency(outflow)
             }
           >
-            {amountToCurrency(outflow)}
+            {amountToCurrency(outflow || 0)}
           </Field>
           <Field
             width={90}
@@ -235,45 +250,30 @@ export function Transaction({
                 : {}),
             }}
             title={
-              inflow === null && outflow === null
+              inflow === null
                 ? 'Invalid: unable to parse the value'
                 : amountToCurrency(inflow)
             }
           >
-            {amountToCurrency(inflow)}
+            {amountToCurrency(inflow || 0)}
           </Field>
         </>
       ) : (
-        <>
-          {inOutMode && (
-            <Field
-              width={90}
-              contentStyle={{ textAlign: 'left', ...styles.tnum }}
-              title={
-                transaction.inOut === undefined
-                  ? undefined
-                  : String(transaction.inOut)
-              }
-            >
-              {transaction.inOut}
-            </Field>
-          )}
-          <Field
-            width={90}
-            contentStyle={{
-              textAlign: 'right',
-              ...styles.tnum,
-              ...(amount === null ? { color: theme.errorText } : {}),
-            }}
-            title={
-              amount === null
-                ? `Invalid: unable to parse the value (${transaction.amount})`
-                : amountToCurrency(amount)
-            }
-          >
-            {amountToCurrency(amount)}
-          </Field>
-        </>
+        <Field
+          width={90}
+          contentStyle={{
+            textAlign: 'right',
+            ...styles.tnum,
+            ...(amount === null ? { color: theme.errorText } : {}),
+          }}
+          title={
+            amount === null
+              ? `Invalid: unable to parse the value (${transaction.amount})`
+              : amountToCurrency(amount)
+          }
+        >
+          {amountToCurrency(amount || 0)}
+        </Field>
       )}
     </Row>
   );

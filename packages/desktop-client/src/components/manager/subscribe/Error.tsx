@@ -1,13 +1,14 @@
 // @ts-strict-ignore
 import React from 'react';
 import { Trans } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 
-import { useNavigate } from '../../../hooks/useNavigate';
-import { theme } from '../../../style';
-import { Button } from '../../common/Button2';
-import { Text } from '../../common/Text';
-import { View } from '../../common/View';
+import { Button } from '@actual-app/components/button';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
 
 function getErrorMessage(reason) {
   switch (reason) {

@@ -1,23 +1,24 @@
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import * as monthUtils from 'loot-core/src/shared/months';
-import { amountToCurrency } from 'loot-core/src/shared/util';
-import { type SpendingWidget } from 'loot-core/src/types/models';
+import { Block } from '@actual-app/components/block';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { styles } from '../../../style/styles';
-import { theme } from '../../../style/theme';
-import { Block } from '../../common/Block';
-import { View } from '../../common/View';
-import { PrivacyFilter } from '../../PrivacyFilter';
-import { DateRange } from '../DateRange';
-import { SpendingGraph } from '../graphs/SpendingGraph';
-import { LoadingIndicator } from '../LoadingIndicator';
-import { ReportCard } from '../ReportCard';
-import { ReportCardName } from '../ReportCardName';
-import { calculateSpendingReportTimeRange } from '../reportRanges';
-import { createSpendingSpreadsheet } from '../spreadsheets/spending-spreadsheet';
-import { useReport } from '../useReport';
+import * as monthUtils from 'loot-core/shared/months';
+import { amountToCurrency } from 'loot-core/shared/util';
+import { type SpendingWidget } from 'loot-core/types/models';
+
+import { PrivacyFilter } from '@desktop-client/components/PrivacyFilter';
+import { DateRange } from '@desktop-client/components/reports/DateRange';
+import { SpendingGraph } from '@desktop-client/components/reports/graphs/SpendingGraph';
+import { LoadingIndicator } from '@desktop-client/components/reports/LoadingIndicator';
+import { ReportCard } from '@desktop-client/components/reports/ReportCard';
+import { ReportCardName } from '@desktop-client/components/reports/ReportCardName';
+import { calculateSpendingReportTimeRange } from '@desktop-client/components/reports/reportRanges';
+import { createSpendingSpreadsheet } from '@desktop-client/components/reports/spreadsheets/spending-spreadsheet';
+import { useReport } from '@desktop-client/components/reports/useReport';
 
 type SpendingCardProps = {
   widgetId: string;
@@ -136,7 +137,7 @@ export function SpendingCard({
                 <PrivacyFilter activationFilters={[!isCardHovered]}>
                   {data &&
                     (difference && difference > 0 ? '+' : '') +
-                      amountToCurrency(difference)}
+                      amountToCurrency(difference || 0)}
                 </PrivacyFilter>
               </Block>
             </View>

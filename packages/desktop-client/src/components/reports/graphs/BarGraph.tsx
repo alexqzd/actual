@@ -2,6 +2,8 @@
 import React, { useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AlignedText } from '@actual-app/components/aligned-text';
+import { theme } from '@actual-app/components/theme';
 import { css } from '@emotion/css';
 import {
   BarChart,
@@ -19,26 +21,24 @@ import {
 import {
   amountToCurrency,
   amountToCurrencyNoDecimal,
-} from 'loot-core/src/shared/util';
+} from 'loot-core/shared/util';
 import {
   type balanceTypeOpType,
   type DataEntity,
-} from 'loot-core/src/types/models/reports';
-import { type RuleConditionEntity } from 'loot-core/types/models/rule';
-
-import { useAccounts } from '../../../hooks/useAccounts';
-import { useCategories } from '../../../hooks/useCategories';
-import { useNavigate } from '../../../hooks/useNavigate';
-import { usePrivacyMode } from '../../../hooks/usePrivacyMode';
-import { theme } from '../../../style';
-import { AlignedText } from '../../common/AlignedText';
-import { Container } from '../Container';
-import { getCustomTick } from '../getCustomTick';
-import { numberFormatterTooltip } from '../numberFormatter';
+  type RuleConditionEntity,
+} from 'loot-core/types/models';
 
 import { adjustTextSize } from './adjustTextSize';
 import { renderCustomLabel } from './renderCustomLabel';
 import { showActivity } from './showActivity';
+
+import { Container } from '@desktop-client/components/reports/Container';
+import { getCustomTick } from '@desktop-client/components/reports/getCustomTick';
+import { numberFormatterTooltip } from '@desktop-client/components/reports/numberFormatter';
+import { useAccounts } from '@desktop-client/hooks/useAccounts';
+import { useCategories } from '@desktop-client/hooks/useCategories';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { usePrivacyMode } from '@desktop-client/hooks/usePrivacyMode';
 
 type PayloadChild = {
   props: {
@@ -50,13 +50,13 @@ type PayloadChild = {
 type PayloadItem = {
   payload: {
     name: string;
-    totalAssets: number | string;
-    totalDebts: number | string;
-    netAssets: number | string;
-    netDebts: number | string;
-    totalTotals: number | string;
-    networth: number | string;
-    totalChange: number | string;
+    totalAssets: number;
+    totalDebts: number;
+    netAssets: number;
+    netDebts: number;
+    totalTotals: number;
+    networth: number;
+    totalChange: number;
     children: [PayloadChild];
   };
 };
@@ -186,10 +186,6 @@ export function BarGraph({
   const labelsMargin = viewLabels ? 30 : 0;
 
   const getVal = obj => {
-    if (balanceTypeOp === 'totalTotals' && groupBy === 'Interval') {
-      return obj.totalAssets;
-    }
-
     if (['totalDebts', 'netDebts'].includes(balanceTypeOp)) {
       return -1 * obj[balanceTypeOp];
     }
@@ -245,30 +241,32 @@ export function BarGraph({
                     isAnimationActive={false}
                   />
                 )}
+                {!compact && <CartesianGrid strokeDasharray="3 3" />}
                 {!compact && (
-                  <>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey={yAxis}
-                      angle={-35}
-                      textAnchor="end"
-                      height={Math.sqrt(longestLabelLength) * 25}
-                      tick={{ fill: theme.pageText }}
-                      tickLine={{ stroke: theme.pageText }}
-                    />
-                    <YAxis
-                      tickFormatter={value =>
-                        getCustomTick(
-                          amountToCurrencyNoDecimal(value),
-                          privacyMode,
-                        )
-                      }
-                      tick={{ fill: theme.pageText }}
-                      tickLine={{ stroke: theme.pageText }}
-                      tickSize={0}
-                    />
-                    <ReferenceLine y={0} stroke={theme.pageTextLight} />
-                  </>
+                  <XAxis
+                    dataKey={yAxis}
+                    angle={-35}
+                    textAnchor="end"
+                    height={Math.sqrt(longestLabelLength) * 25}
+                    tick={{ fill: theme.pageText }}
+                    tickLine={{ stroke: theme.pageText }}
+                  />
+                )}
+                {!compact && (
+                  <YAxis
+                    tickFormatter={value =>
+                      getCustomTick(
+                        amountToCurrencyNoDecimal(value),
+                        privacyMode,
+                      )
+                    }
+                    tick={{ fill: theme.pageText }}
+                    tickLine={{ stroke: theme.pageText }}
+                    tickSize={0}
+                  />
+                )}
+                {!compact && (
+                  <ReferenceLine y={0} stroke={theme.pageTextLight} />
                 )}
                 <Bar
                   dataKey={val => getVal(val)}
@@ -311,23 +309,6 @@ export function BarGraph({
                     />
                   ))}
                 </Bar>
-                {yAxis === 'date' && balanceTypeOp === 'totalTotals' && (
-                  <Bar dataKey="totalDebts" stackId="a">
-                    {viewLabels && !compact && (
-                      <LabelList
-                        dataKey="totalDebts"
-                        content={e => customLabel(e, balanceTypeOp)}
-                      />
-                    )}
-                    {data[splitData].map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={theme.reportsRed}
-                        name={entry.name}
-                      />
-                    ))}
-                  </Bar>
-                )}
               </BarChart>
             </div>
           </ResponsiveContainer>

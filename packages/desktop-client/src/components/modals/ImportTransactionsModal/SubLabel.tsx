@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { theme } from '../../../style';
-import { Text } from '../../common/Text';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
 
 type SubLabelProps = {
   title: string;

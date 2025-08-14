@@ -1,32 +1,35 @@
 // @ts-strict-ignore
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 
+import { ButtonWithLoading } from '@actual-app/components/button';
+import { InitialFocus } from '@actual-app/components/initial-focus';
+import { Input } from '@actual-app/components/input';
+import { Text } from '@actual-app/components/text';
+import { View } from '@actual-app/components/view';
+
+import { send } from 'loot-core/platform/client/fetch';
 import { getSecretsError } from 'loot-core/shared/errors';
-import { send } from 'loot-core/src/platform/client/fetch';
 
-import { Error } from '../alerts';
-import { ButtonWithLoading } from '../common/Button2';
-import { InitialFocus } from '../common/InitialFocus';
-import { Input } from '../common/Input';
-import { Link } from '../common/Link';
+import { Error } from '@desktop-client/components/alerts';
+import { Link } from '@desktop-client/components/common/Link';
 import {
   Modal,
   ModalButtons,
   ModalCloseButton,
   ModalHeader,
-} from '../common/Modal';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { FormField, FormLabel } from '../forms';
+} from '@desktop-client/components/common/Modal';
+import { FormField, FormLabel } from '@desktop-client/components/forms';
+import { type Modal as ModalType } from '@desktop-client/modals/modalsSlice';
 
-type GoCardlessInitialiseProps = {
-  onSuccess: () => void;
-};
+type GoCardlessInitialiseModalProps = Extract<
+  ModalType,
+  { name: 'gocardless-init' }
+>['options'];
 
 export const GoCardlessInitialiseModal = ({
   onSuccess,
-}: GoCardlessInitialiseProps) => {
+}: GoCardlessInitialiseModalProps) => {
   const { t } = useTranslation();
   const [secretId, setSecretId] = useState('');
   const [secretKey, setSecretKey] = useState('');
@@ -83,22 +86,24 @@ export const GoCardlessInitialiseModal = ({
       {({ state: { close } }) => (
         <>
           <ModalHeader
-            title={t('Set-up GoCardless')} // Translated title
+            title={t('Set up GoCardless')}
             rightContent={<ModalCloseButton onPress={close} />}
           />
           <View style={{ display: 'flex', gap: 10 }}>
             <Text>
-              {t(
-                'In order to enable bank-sync via GoCardless (only for EU banks) you will need to create access credentials. This can be done by creating an account with',
-              )}{' '}
-              <Link
-                variant="external"
-                to="https://actualbudget.org/docs/advanced/bank-sync/"
-                linkColor="purple"
-              >
-                {t('GoCardless')}
-              </Link>
-              .
+              <Trans>
+                In order to enable bank sync via GoCardless (only for EU banks)
+                you will need to create access credentials. This can be done by
+                creating an account with{' '}
+                <Link
+                  variant="external"
+                  to="https://actualbudget.org/docs/advanced/bank-sync/"
+                  linkColor="purple"
+                >
+                  GoCardless
+                </Link>
+                .
+              </Trans>
             </Text>
 
             <FormField>
@@ -140,7 +145,7 @@ export const GoCardlessInitialiseModal = ({
                 onSubmit(close);
               }}
             >
-              {t('Save and continue')}
+              <Trans>Save and continue</Trans>
             </ButtonWithLoading>
           </ModalButtons>
         </>

@@ -1,23 +1,22 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
-import { useSelector, useDispatch } from 'react-redux';
+import { Trans, useTranslation } from 'react-i18next';
 
-import { setAppState, updateApp } from 'loot-core/client/actions';
-import { type State } from 'loot-core/src/client/state-types';
+import { Button } from '@actual-app/components/button';
+import { SvgClose } from '@actual-app/components/icons/v1';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
-import { SvgClose } from '../icons/v1';
-import { theme } from '../style';
-
-import { Button } from './common/Button2';
 import { Link } from './common/Link';
-import { Text } from './common/Text';
-import { View } from './common/View';
+
+import { setAppState, updateApp } from '@desktop-client/app/appSlice';
+import { useSelector, useDispatch } from '@desktop-client/redux';
 
 export function UpdateNotification() {
   const { t } = useTranslation();
-  const updateInfo = useSelector((state: State) => state.app.updateInfo);
+  const updateInfo = useSelector(state => state.app.updateInfo);
   const showUpdateNotification = useSelector(
-    (state: State) => state.app.showUpdateNotification,
+    state => state.app.showUpdateNotification,
   );
 
   const dispatch = useDispatch();
@@ -46,7 +45,7 @@ export function UpdateNotification() {
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ marginRight: 10, fontWeight: 700 }}>
             <Text>
-              {t('App updated to {{version}}', { version: updateInfo.version })}
+              <Trans>App updated to {{ version: updateInfo.version }}</Trans>
             </Text>
           </View>
           <View style={{ flex: 1 }} />
@@ -60,7 +59,7 @@ export function UpdateNotification() {
                   textDecoration: 'underline',
                 }}
               >
-                {t('Restart')}
+                <Trans>Restart</Trans>
               </Link>{' '}
               (
               <Link
@@ -70,12 +69,12 @@ export function UpdateNotification() {
                   textDecoration: 'underline',
                 }}
                 onClick={() =>
-                  window.Actual?.openURLInBrowser(
+                  window.Actual.openURLInBrowser(
                     'https://actualbudget.org/docs/releases',
                   )
                 }
               >
-                {t('notes')}
+                <Trans>notes</Trans>
               </Link>
               )
               <Button

@@ -3,6 +3,7 @@
 !data/.gitkeep
 /data2
 Actual-*
+!actual-server.js
 **/xcuserdata/*
 export-2020-01-10.csv
 
@@ -53,3 +54,12 @@ bundle.mobile.js.map
 
 # build output
 package.tgz
+
+# Fly.io configuration
+fly.toml
+
+# TypeScript cache
+build/
+
+# .d.ts files aren't type-checked with skipLibCheck set to true
+*.d.ts

@@ -1,21 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import * as monthUtils from 'loot-core/src/shared/months';
+import { View } from '@actual-app/components/view';
+
+import * as monthUtils from 'loot-core/shared/months';
 import {
   type SummaryContent,
   type SummaryWidget,
 } from 'loot-core/types/models';
 
-import { View } from '../../common/View';
-import { DateRange } from '../DateRange';
-import { LoadingIndicator } from '../LoadingIndicator';
-import { ReportCard } from '../ReportCard';
-import { ReportCardName } from '../ReportCardName';
-import { calculateTimeRange } from '../reportRanges';
-import { summarySpreadsheet } from '../spreadsheets/summary-spreadsheet';
-import { SummaryNumber } from '../SummaryNumber';
-import { useReport } from '../useReport';
+import { DateRange } from '@desktop-client/components/reports/DateRange';
+import { LoadingIndicator } from '@desktop-client/components/reports/LoadingIndicator';
+import { ReportCard } from '@desktop-client/components/reports/ReportCard';
+import { ReportCardName } from '@desktop-client/components/reports/ReportCardName';
+import { calculateTimeRange } from '@desktop-client/components/reports/reportRanges';
+import { summarySpreadsheet } from '@desktop-client/components/reports/spreadsheets/summary-spreadsheet';
+import { SummaryNumber } from '@desktop-client/components/reports/SummaryNumber';
+import { useReport } from '@desktop-client/components/reports/useReport';
+import { useLocale } from '@desktop-client/hooks/useLocale';
 
 type SummaryCardProps = {
   widgetId: string;
@@ -32,6 +34,7 @@ export function SummaryCard({
   onMetaChange,
   onRemove,
 }: SummaryCardProps) {
+  const locale = useLocale();
   const { t } = useTranslation();
   const [start, end] = calculateTimeRange(meta?.timeFrame, {
     start: monthUtils.dayFromDate(monthUtils.currentMonth()),
@@ -62,8 +65,9 @@ export function SummaryCard({
         meta?.conditions,
         meta?.conditionsOp,
         content,
+        locale,
       ),
-    [start, end, meta?.conditions, meta?.conditionsOp, content],
+    [start, end, meta?.conditions, meta?.conditionsOp, content, locale],
   );
 
   const data = useReport('summary', params);

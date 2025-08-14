@@ -2,6 +2,8 @@
 import React, { type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AlignedText } from '@actual-app/components/aligned-text';
+import { theme } from '@actual-app/components/theme';
 import { css } from '@emotion/css';
 import {
   ComposedChart,
@@ -16,11 +18,9 @@ import {
 
 import { amountToCurrencyNoDecimal } from 'loot-core/shared/util';
 
-import { theme } from '../../../style';
-import { AlignedText } from '../../common/AlignedText';
-import { PrivacyFilter } from '../../PrivacyFilter';
-import { Container } from '../Container';
-import { numberFormatterTooltip } from '../numberFormatter';
+import { PrivacyFilter } from '@desktop-client/components/PrivacyFilter';
+import { Container } from '@desktop-client/components/reports/Container';
+import { numberFormatterTooltip } from '@desktop-client/components/reports/numberFormatter';
 
 type PayloadItem = {
   payload: {
@@ -118,12 +118,10 @@ export function BarLineGraph({
                     isAnimationActive={false}
                   />
                 )}
+                {!compact && <CartesianGrid strokeDasharray="3 3" />}
+                {!compact && <XAxis dataKey="x" />}
                 {!compact && (
-                  <>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="x" />
-                    <YAxis dataKey="y" tickFormatter={tickFormatter} />
-                  </>
+                  <YAxis dataKey="y" tickFormatter={tickFormatter} />
                 )}
                 <Bar type="monotone" dataKey="y" fill="#8884d8" />
                 <Line type="monotone" dataKey="y" stroke="#8884d8" />

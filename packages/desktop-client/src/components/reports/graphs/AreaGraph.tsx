@@ -1,6 +1,8 @@
 import React, { type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AlignedText } from '@actual-app/components/aligned-text';
+import { theme } from '@actual-app/components/theme';
 import { css } from '@emotion/css';
 import {
   AreaChart,
@@ -16,28 +18,26 @@ import {
 import {
   amountToCurrency,
   amountToCurrencyNoDecimal,
-} from 'loot-core/src/shared/util';
+} from 'loot-core/shared/util';
 import {
   type balanceTypeOpType,
   type DataEntity,
-} from 'loot-core/src/types/models/reports';
-
-import { usePrivacyMode } from '../../../hooks/usePrivacyMode';
-import { theme } from '../../../style';
-import { AlignedText } from '../../common/AlignedText';
-import { Container } from '../Container';
+} from 'loot-core/types/models';
 
 import { adjustTextSize } from './adjustTextSize';
 import { renderCustomLabel } from './renderCustomLabel';
 
+import { Container } from '@desktop-client/components/reports/Container';
+import { usePrivacyMode } from '@desktop-client/hooks/usePrivacyMode';
+
 type PayloadItem = {
   payload: {
     date: string;
-    totalAssets: number | string;
-    totalDebts: number | string;
-    netAssets: number | string;
-    netDebts: number | string;
-    totalTotals: number | string;
+    totalAssets: number;
+    totalDebts: number;
+    netAssets: number;
+    netDebts: number;
+    totalTotals: number;
   };
 };
 
@@ -141,7 +141,9 @@ const customLabel = ({
     ((typeof props.value === 'number' ? props.value : 0) > 0 ? 10 : -10);
   const textAnchor = props.index === 0 ? 'left' : 'middle';
   const display =
-    props.value !== 0 ? `${amountToCurrencyNoDecimal(props.value)}` : '';
+    typeof props.value !== 'string' && props.value !== 0
+      ? `${amountToCurrencyNoDecimal(props.value || 0)}`
+      : '';
   const textSize = adjustTextSize({ sized: width, type: 'area' });
 
   return renderCustomLabel(calcX, calcY, textAnchor, display, textSize);

@@ -1,17 +1,19 @@
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
-import { pushModal } from 'loot-core/client/actions';
-
-import { useFeatureFlag } from '../../hooks/useFeatureFlag';
-import { theme } from '../../style';
-import { Button } from '../common/Button2';
-import { Label } from '../common/Label';
-import { Text } from '../common/Text';
-import { useMultiuserEnabled, useLoginMethod } from '../ServerContext';
+import { Button } from '@actual-app/components/button';
+import { Label } from '@actual-app/components/label';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
 
 import { Setting } from './UI';
+
+import {
+  useMultiuserEnabled,
+  useLoginMethod,
+} from '@desktop-client/components/ServerContext';
+import { pushModal } from '@desktop-client/modals/modalsSlice';
+import { useDispatch } from '@desktop-client/redux';
 
 export function AuthSettings() {
   const { t } = useTranslation();
@@ -19,9 +21,8 @@ export function AuthSettings() {
   const multiuserEnabled = useMultiuserEnabled();
   const loginMethod = useLoginMethod();
   const dispatch = useDispatch();
-  const openidAuthFeatureFlag = useFeatureFlag('openidAuth');
 
-  return openidAuthFeatureFlag === true ? (
+  return (
     <Setting
       primaryAction={
         <>
@@ -41,8 +42,13 @@ export function AuthSettings() {
                 variant="normal"
                 onPress={() =>
                   dispatch(
-                    pushModal('enable-openid', {
-                      onSave: async () => {},
+                    pushModal({
+                      modal: {
+                        name: 'enable-openid',
+                        options: {
+                          onSave: async () => {},
+                        },
+                      },
                     }),
                   )
                 }
@@ -64,8 +70,13 @@ export function AuthSettings() {
                 variant="normal"
                 onPress={() =>
                   dispatch(
-                    pushModal('enable-password-auth', {
-                      onSave: async () => {},
+                    pushModal({
+                      modal: {
+                        name: 'enable-password-auth',
+                        options: {
+                          onSave: async () => {},
+                        },
+                      },
                     }),
                   )
                 }
@@ -91,5 +102,5 @@ export function AuthSettings() {
         </Trans>
       </Text>
     </Setting>
-  ) : null;
+  );
 }

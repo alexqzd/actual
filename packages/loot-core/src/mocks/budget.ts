@@ -2,7 +2,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import { addTransactions } from '../server/accounts/sync';
-import { runQuery as aqlQuery } from '../server/aql';
+import { aqlQuery } from '../server/aql';
 import * as budgetActions from '../server/budget/actions';
 import * as budget from '../server/budget/base';
 import * as db from '../server/db';
@@ -14,12 +14,13 @@ import { q } from '../shared/query';
 import type { Handlers } from '../types/handlers';
 import type {
   CategoryGroupEntity,
-  NewCategoryGroupEntity,
   PayeeEntity,
   TransactionEntity,
 } from '../types/models';
 
 import { random } from './random';
+
+import { CategoryGroupDefinition } from '.';
 
 type MockPayeeEntity = Partial<PayeeEntity> & { bill?: boolean };
 
@@ -461,14 +462,14 @@ async function fillOther(handlers, account, payees, groups) {
 async function createBudget(accounts, payees, groups) {
   const primaryAccount = accounts.find(a => (a.name = 'Bank of America'));
   const earliestDate = (
-    await db.first(
-      `SELECT * FROM v_transactions t LEFT JOIN accounts a ON t.account = a.id
+    await db.first<Pick<db.DbViewTransaction, 'date'>>(
+      `SELECT t.date FROM v_transactions t LEFT JOIN accounts a ON t.account = a.id
        WHERE a.offbudget = 0 AND t.is_child = 0 ORDER BY date ASC LIMIT 1`,
     )
   ).date;
   const earliestPrimaryDate = (
-    await db.first(
-      `SELECT * FROM v_transactions t LEFT JOIN accounts a ON t.account = a.id
+    await db.first<Pick<db.DbViewTransaction, 'date'>>(
+      `SELECT t.date FROM v_transactions t LEFT JOIN accounts a ON t.account = a.id
        WHERE a.id = ? AND a.offbudget = 0 AND t.is_child = 0 ORDER BY date ASC LIMIT 1`,
       [primaryAccount.id],
     )
@@ -651,7 +652,7 @@ export async function createTestBudget(handlers: Handlers) {
     }),
   );
 
-  const newCategoryGroups: Array<NewCategoryGroupEntity> = [
+  const newCategoryGroups: Array<CategoryGroupDefinition> = [
     {
       name: 'Usual Expenses',
       categories: [
@@ -703,13 +704,14 @@ export async function createTestBudget(handlers: Handlers) {
       for (const category of group.categories) {
         const categoryId = await handlers['category-create']({
           ...category,
-          isIncome: category.is_income ? 1 : 0,
+          isIncome: category.is_income,
           groupId,
         });
 
         categoryGroups[categoryGroups.length - 1].categories.push({
           ...category,
           id: categoryId,
+          group: groupId,
         });
       }
     }

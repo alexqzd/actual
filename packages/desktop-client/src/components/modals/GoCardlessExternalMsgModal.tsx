@@ -1,27 +1,35 @@
 // @ts-strict-ignore
 import React, { useEffect, useState, useRef } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
-import { pushModal } from 'loot-core/src/client/actions/modals';
-import { sendCatch } from 'loot-core/src/platform/client/fetch';
+import { Button } from '@actual-app/components/button';
+import { AnimatedLoading } from '@actual-app/components/icons/AnimatedLoading';
+import { Paragraph } from '@actual-app/components/paragraph';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
+import { sendCatch } from 'loot-core/platform/client/fetch';
 import {
   type GoCardlessInstitution,
   type GoCardlessToken,
-} from 'loot-core/src/types/models';
+} from 'loot-core/types/models';
 
-import { useGoCardlessStatus } from '../../hooks/useGoCardlessStatus';
-import { AnimatedLoading } from '../../icons/AnimatedLoading';
-import { theme } from '../../style';
-import { Error, Warning } from '../alerts';
-import { Autocomplete } from '../autocomplete/Autocomplete';
-import { Button } from '../common/Button2';
-import { Link } from '../common/Link';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
-import { Paragraph } from '../common/Paragraph';
-import { View } from '../common/View';
-import { FormField, FormLabel } from '../forms';
-import { COUNTRY_OPTIONS } from '../util/countries';
+import { Error, Warning } from '@desktop-client/components/alerts';
+import { Autocomplete } from '@desktop-client/components/autocomplete/Autocomplete';
+import { Link } from '@desktop-client/components/common/Link';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { FormField, FormLabel } from '@desktop-client/components/forms';
+import { COUNTRY_OPTIONS } from '@desktop-client/components/util/countries';
+import { useGoCardlessStatus } from '@desktop-client/hooks/useGoCardlessStatus';
+import {
+  type Modal as ModalType,
+  pushModal,
+} from '@desktop-client/modals/modalsSlice';
+import { useDispatch } from '@desktop-client/redux';
 
 function useAvailableBanks(country: string) {
   const [banks, setBanks] = useState<GoCardlessInstitution[]>([]);
@@ -62,29 +70,32 @@ function useAvailableBanks(country: string) {
   };
 }
 
-function renderError(error: 'unknown' | 'timeout', t: (key: string) => string) {
+function renderError(
+  error: { code: 'unknown' | 'timeout'; message?: string },
+  t: ReturnType<typeof useTranslation>['t'],
+) {
   return (
-    <Error style={{ alignSelf: 'center' }}>
-      {error === 'timeout'
+    <Error style={{ alignSelf: 'center', marginBottom: 10 }}>
+      {error.code === 'timeout'
         ? t('Timed out. Please try again.')
-        : t('An error occurred while linking your account, sorry!')}
+        : t(
+            'An error occurred while linking your account, sorry! The potential issue could be: {{ message }}',
+            { message: error.message },
+          )}
     </Error>
   );
 }
 
-type GoCardlessExternalMsgProps = {
-  onMoveExternal: (arg: {
-    institutionId: string;
-  }) => Promise<{ error?: 'unknown' | 'timeout'; data?: GoCardlessToken }>;
-  onSuccess: (data: GoCardlessToken) => Promise<void>;
-  onClose: () => void;
-};
+type GoCardlessExternalMsgModalProps = Extract<
+  ModalType,
+  { name: 'gocardless-external-msg' }
+>['options'];
 
 export function GoCardlessExternalMsgModal({
   onMoveExternal,
   onSuccess,
   onClose,
-}: GoCardlessExternalMsgProps) {
+}: GoCardlessExternalMsgModalProps) {
   const { t } = useTranslation();
 
   const dispatch = useDispatch();
@@ -93,7 +104,10 @@ export function GoCardlessExternalMsgModal({
   const [success, setSuccess] = useState<boolean>(false);
   const [institutionId, setInstitutionId] = useState<string>();
   const [country, setCountry] = useState<string>();
-  const [error, setError] = useState<'unknown' | 'timeout' | null>(null);
+  const [error, setError] = useState<{
+    code: 'unknown' | 'timeout';
+    message?: string;
+  } | null>(null);
   const [isGoCardlessSetupComplete, setIsGoCardlessSetupComplete] = useState<
     boolean | null
   >(null);
@@ -114,8 +128,11 @@ export function GoCardlessExternalMsgModal({
     setWaiting('browser');
 
     const res = await onMoveExternal({ institutionId });
-    if (res.error) {
-      setError(res.error);
+    if ('error' in res) {
+      setError({
+        code: res.error,
+        message: 'message' in res ? res.message : undefined,
+      });
       setWaiting(null);
       return;
     }
@@ -133,8 +150,13 @@ export function GoCardlessExternalMsgModal({
 
   const onGoCardlessInit = () => {
     dispatch(
-      pushModal('gocardless-init', {
-        onSuccess: () => setIsGoCardlessSetupComplete(true),
+      pushModal({
+        modal: {
+          name: 'gocardless-init',
+          options: {
+            onSuccess: () => setIsGoCardlessSetupComplete(true),
+          },
+        },
       }),
     );
   };
@@ -200,7 +222,7 @@ export function GoCardlessExternalMsgModal({
 
         <Warning>
           <Trans>
-            By enabling bank-sync, you will be granting GoCardless (a third
+            By enabling bank sync, you will be granting GoCardless (a third
             party service) read-only access to your entire account’s transaction
             history. This service is not affiliated with Actual in any way. Make
             sure you’ve read and understand GoCardless’s{' '}
@@ -228,7 +250,7 @@ export function GoCardlessExternalMsgModal({
             onPress={onJump}
             isDisabled={!institutionId || !country}
           >
-            <Trans>Link bank in browser &rarr;</Trans>
+            <Trans>Link bank in browser</Trans> &rarr;
           </Button>
         </View>
       </View>
@@ -266,7 +288,7 @@ export function GoCardlessExternalMsgModal({
                 />
                 <View style={{ marginTop: 10, color: theme.pageText }}>
                   {isConfigurationLoading
-                    ? t('Checking GoCardless configuration..')
+                    ? t('Checking GoCardless configuration...')
                     : waiting === 'browser'
                       ? t('Waiting on GoCardless...')
                       : waiting === 'accounts'
@@ -280,9 +302,11 @@ export function GoCardlessExternalMsgModal({
                     onClick={onJump}
                     style={{ marginTop: 10 }}
                   >
+                    (
                     <Trans>
-                      (Account linking not opening in a new tab? Click here)
+                      Account linking not opening in a new tab? Click here
                     </Trans>
+                    )
                   </Link>
                 )}
               </View>
@@ -298,7 +322,7 @@ export function GoCardlessExternalMsgModal({
                 }}
                 onPress={onContinue}
               >
-                <Trans>Success! Click to continue &rarr;</Trans>
+                <Trans>Success! Click to continue</Trans> &rarr;
               </Button>
             ) : isConfigured || isGoCardlessSetupComplete ? (
               renderLinkButton()

@@ -1,31 +1,33 @@
 import React, { useMemo, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
-import { pushModal } from 'loot-core/client/actions';
-import { type CategoryEntity } from 'loot-core/types/models';
+import { Button } from '@actual-app/components/button';
+import { InitialFocus } from '@actual-app/components/initial-focus';
+import { styles } from '@actual-app/components/styles';
+import { View } from '@actual-app/components/view';
 
-import { useCategories } from '../../hooks/useCategories';
-import { styles } from '../../style';
 import {
   addToBeBudgetedGroup,
   removeCategoriesFromGroups,
-} from '../budget/util';
-import { Button } from '../common/Button2';
-import { InitialFocus } from '../common/InitialFocus';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
-import { View } from '../common/View';
-import { FieldLabel, TapField } from '../mobile/MobileForms';
-import { AmountInput } from '../util/AmountInput';
+} from '@desktop-client/components/budget/util';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import {
+  FieldLabel,
+  TapField,
+} from '@desktop-client/components/mobile/MobileForms';
+import { AmountInput } from '@desktop-client/components/util/AmountInput';
+import { useCategories } from '@desktop-client/hooks/useCategories';
+import {
+  type Modal as ModalType,
+  pushModal,
+} from '@desktop-client/modals/modalsSlice';
+import { useDispatch } from '@desktop-client/redux';
 
-type TransferModalProps = {
-  title: string;
-  categoryId?: CategoryEntity['id'];
-  month: string;
-  amount: number;
-  showToBeBudgeted: boolean;
-  onSubmit: (amount: number, toCategoryId: CategoryEntity['id']) => void;
-};
+type TransferModalProps = Extract<ModalType, { name: 'transfer' }>['options'];
 
 export function TransferModal({
   title,
@@ -53,18 +55,23 @@ export function TransferModal({
     return [filteredCategoryGroups, filteredCategories];
   }, [categoryId, originalCategoryGroups, showToBeBudgeted]);
 
-  const [amount, setAmount] = useState<number>(0);
+  const [amount, setAmount] = useState<number>(initialAmount);
   const [toCategoryId, setToCategoryId] = useState<string | null>(null);
   const dispatch = useDispatch();
 
   const openCategoryModal = () => {
     dispatch(
-      pushModal('category-autocomplete', {
-        categoryGroups,
-        month,
-        showHiddenCategories: true,
-        onSelect: categoryId => {
-          setToCategoryId(categoryId);
+      pushModal({
+        modal: {
+          name: 'category-autocomplete',
+          options: {
+            categoryGroups,
+            month,
+            showHiddenCategories: true,
+            onSelect: categoryId => {
+              setToCategoryId(categoryId);
+            },
+          },
         },
       }),
     );
@@ -111,11 +118,7 @@ export function TransferModal({
             </View>
 
             <FieldLabel title="To:" />
-            <TapField
-              tabIndex={0}
-              value={toCategory?.name}
-              onClick={openCategoryModal}
-            />
+            <TapField value={toCategory?.name} onPress={openCategoryModal} />
 
             <View
               style={{

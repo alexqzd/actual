@@ -9,28 +9,32 @@ import React, {
   type CSSProperties,
 } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
-import { addNotification, pushModal } from 'loot-core/client/actions';
-import { send } from 'loot-core/src/platform/client/fetch';
-import * as undo from 'loot-core/src/platform/client/undo';
+import { Button } from '@actual-app/components/button';
+import { SvgLockOpen } from '@actual-app/components/icons/v1';
+import { SvgLockClosed } from '@actual-app/components/icons/v2';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
+import { send } from 'loot-core/platform/client/fetch';
+import * as undo from 'loot-core/platform/client/undo';
 import { type Handlers } from 'loot-core/types/handlers';
-import { type UserAvailable } from 'loot-core/types/models';
-import { type UserAccessEntity } from 'loot-core/types/models/userAccess';
-
-import { useMetadataPref } from '../../../hooks/useMetadataPref';
-import { SvgLockOpen } from '../../../icons/v1';
-import { SvgLockClosed } from '../../../icons/v2';
-import { theme } from '../../../style';
-import { Button } from '../../common/Button2';
-import { Link } from '../../common/Link';
-import { Search } from '../../common/Search';
-import { SimpleTable } from '../../common/SimpleTable';
-import { Text } from '../../common/Text';
-import { View } from '../../common/View';
+import {
+  type UserAvailable,
+  type UserAccessEntity,
+} from 'loot-core/types/models';
 
 import { UserAccessHeader } from './UserAccessHeader';
 import { UserAccessRow } from './UserAccessRow';
+
+import { InfiniteScrollWrapper } from '@desktop-client/components/common/InfiniteScrollWrapper';
+import { Link } from '@desktop-client/components/common/Link';
+import { Search } from '@desktop-client/components/common/Search';
+import { useMetadataPref } from '@desktop-client/hooks/useMetadataPref';
+import { pushModal } from '@desktop-client/modals/modalsSlice';
+import { addNotification } from '@desktop-client/notifications/notificationsSlice';
+import { useDispatch } from '@desktop-client/redux';
 
 type ManageUserAccessContentProps = {
   isModal: boolean;
@@ -42,7 +46,7 @@ function UserAccessContent({
   setLoading,
 }: ManageUserAccessContentProps) {
   const { t } = useTranslation();
-
+  const dispatch = useDispatch();
   const [allAccess, setAllAccess] = useState([]);
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState('');
@@ -84,13 +88,17 @@ function UserAccessContent({
     };
 
     if ('error' in data) {
-      addNotification({
-        type: 'error',
-        id: 'error',
-        title: t('Error getting available users'),
-        sticky: true,
-        message: data.error,
-      });
+      dispatch(
+        addNotification({
+          notification: {
+            type: 'error',
+            id: 'error',
+            title: t('Error getting available users'),
+            sticky: true,
+            message: data.error,
+          },
+        }),
+      );
       return [];
     }
 
@@ -103,11 +111,12 @@ function UserAccessContent({
 
     setAllAccess(loadedAccess);
     return loadedAccess;
-  }, [cloudFileId, setLoading, t]);
+  }, [cloudFileId, dispatch, setLoading, t]);
 
   const loadOwner = useCallback(async () => {
-    const file: Awaited<ReturnType<Handlers['get-user-file-info']>> =
-      (await send('get-user-file-info', cloudFileId as string)) ?? {};
+    const file = (await send('get-user-file-info', cloudFileId as string)) ?? {
+      usersWithAccess: [],
+    };
     const owner = file?.usersWithAccess.filter(user => user.owner);
 
     if (owner.length > 0) {
@@ -163,15 +172,15 @@ function UserAccessContent({
         >
           <Text>
             <Trans>
-              Determine which users can view and manage your budgets..{' '}
-              <Link
-                variant="external"
-                to="https://actualbudget.org/docs/budgeting/users-access/"
-                linkColor="muted"
-              >
-                Learn more
-              </Link>
-            </Trans>
+              Determine which users can view and manage your budgets
+            </Trans>{' '}
+            <Link
+              variant="external"
+              to="https://actualbudget.org/docs/config/multi-user#user-access-management"
+              linkColor="muted"
+            >
+              <Trans>Learn more</Trans>
+            </Link>
           </Text>
         </View>
         <View style={{ flex: 1 }} />
@@ -183,17 +192,13 @@ function UserAccessContent({
       </View>
       <View style={{ flex: 1 }}>
         <UserAccessHeader />
-        <SimpleTable
-          loadMore={loadMore}
-          // Hide the last border of the item in the table
-          style={{ marginBottom: -1 }}
-        >
+        <InfiniteScrollWrapper loadMore={loadMore}>
           <UserAccessList
             accesses={filteredAccesses}
             hoveredAccess={hoveredUserAccess}
             onHover={onHover}
           />
-        </SimpleTable>
+        </InfiniteScrollWrapper>
       </View>
       <View
         style={{
@@ -269,17 +274,23 @@ type LockToggleProps = {
 function LockToggle({ style, onToggleSave }: LockToggleProps) {
   const [hover, setHover] = useState(false);
   const dispatch = useDispatch();
+  const { t } = useTranslation();
 
   return (
     <Button
       onHoverStart={() => setHover(true)}
       onHoverEnd={() => setHover(false)}
       variant="primary"
-      aria-label="Menu"
+      aria-label={t('Menu')}
       onPress={() =>
         dispatch(
-          pushModal('transfer-ownership', {
-            onSave: () => onToggleSave(),
+          pushModal({
+            modal: {
+              name: 'transfer-ownership',
+              options: {
+                onSave: () => onToggleSave(),
+              },
+            },
           }),
         )
       }

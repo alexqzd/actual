@@ -1,5 +1,5 @@
 // @ts-strict-ignore
-import * as Platform from 'loot-core/src/client/platform';
+import * as Platform from 'loot-core/shared/platform';
 
 function parseSemanticVersion(versionString): [number, number, number] {
   return versionString
@@ -19,29 +19,24 @@ function cmpSemanticVersion(
 }
 
 export async function getLatestVersion(): Promise<string | 'unknown'> {
-  if (Platform.isPlaywright) {
+  if (Platform.isPlaywright || process.env.REACT_APP_REVIEW_ID) {
     return Promise.resolve('v99.9.9');
   }
 
   try {
     const response = await fetch(
-      'https://api.github.com/repos/actualbudget/actual/tags',
+      'https://api.github.com/repos/actualbudget/actual/releases/latest',
     );
     const json = await response.json();
-    const tags = json
-      .map(t => t.name)
-      .concat([`v${window.Actual?.ACTUAL_VERSION}`]);
-    tags.sort(cmpSemanticVersion);
-
-    return tags[tags.length - 1];
+    return json?.tag_name ?? 'unknown';
   } catch {
-    // Rate limit exceeded? Or perhaps Github is down?
+    // Rate limit exceeded? Or perhaps GitHub is down?
     return 'unknown';
   }
 }
 
 export async function getIsOutdated(latestVersion: string): Promise<boolean> {
-  const clientVersion = window.Actual?.ACTUAL_VERSION;
+  const clientVersion = window.Actual.ACTUAL_VERSION;
   if (latestVersion === 'unknown') {
     return Promise.resolve(false);
   }

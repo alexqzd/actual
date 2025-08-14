@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
+import { Trans } from 'react-i18next';
 
-import { resetSync } from 'loot-core/client/actions';
-import { send } from 'loot-core/src/platform/client/fetch';
+import { ButtonWithLoading } from '@actual-app/components/button';
+import { Text } from '@actual-app/components/text';
 
-import { useMetadataPref } from '../../hooks/useMetadataPref';
-import { ButtonWithLoading } from '../common/Button2';
-import { Text } from '../common/Text';
+import { send } from 'loot-core/platform/client/fetch';
 
 import { Setting } from './UI';
 
+import { resetSync } from '@desktop-client/app/appSlice';
+import { useMetadataPref } from '@desktop-client/hooks/useMetadataPref';
+import { useDispatch } from '@desktop-client/redux';
+
 export function ResetCache() {
-  const { t } = useTranslation();
   const [resetting, setResetting] = useState(false);
 
   async function onResetCache() {
@@ -25,22 +25,24 @@ export function ResetCache() {
     <Setting
       primaryAction={
         <ButtonWithLoading isLoading={resetting} onPress={onResetCache}>
-          {t('Reset budget cache')}
+          <Trans>Reset budget cache</Trans>
         </ButtonWithLoading>
       }
     >
       <Text>
-        <strong>{t('Reset budget cache')}</strong>
-        {t(
-          ' will clear all cached values for the budget and recalculate the entire budget. All values in the budget are cached for performance reasons, and if there is a bug in the cache you won’t see correct values. There is no danger in resetting the cache. Hopefully you never have to do this.',
-        )}
+        <Trans>
+          <strong>Reset budget cache</strong> will clear all cached values for
+          the budget and recalculate the entire budget. All values in the budget
+          are cached for performance reasons, and if there is a bug in the cache
+          you won’t see correct values. There is no danger in resetting the
+          cache. Hopefully you never have to do this.
+        </Trans>
       </Text>
     </Setting>
   );
 }
 
 export function ResetSync() {
-  const { t } = useTranslation();
   const [groupId] = useMetadataPref('groupId');
   const isEnabled = !!groupId;
   const dispatch = useDispatch();
@@ -61,21 +63,26 @@ export function ResetSync() {
           isDisabled={!isEnabled}
           onPress={onResetSync}
         >
-          {t('Reset sync')}
+          <Trans>Reset sync</Trans>
         </ButtonWithLoading>
       }
     >
       {isEnabled ? (
         <Text>
-          <strong>{t('Reset sync')}</strong>
-          {t(
-            ' will remove all local data used to track changes for syncing, and create a fresh sync ID on the server. This file on other devices will have to be re-downloaded to use the new sync ID. Use this if there is a problem with syncing and you want to start fresh.',
-          )}
+          <Trans>
+            <strong>Reset sync</strong> will remove all local data used to track
+            changes for syncing, and create a fresh sync ID on the server. This
+            file on other devices will have to be re-downloaded to use the new
+            sync ID. Use this if there is a problem with syncing and you want to
+            start fresh.
+          </Trans>
         </Text>
       ) : (
         <Text>
-          <strong>{t('Reset sync')}</strong>
-          {t(' is only available when syncing is')}
+          <Trans>
+            <strong>Reset sync</strong> is only available when syncing is
+            enabled.
+          </Trans>
         </Text>
       )}
     </Setting>

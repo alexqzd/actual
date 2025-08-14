@@ -1,16 +1,20 @@
 // @ts-strict-ignore
-import { memo, useRef, type CSSProperties } from 'react';
+import { memo, useRef, useMemo, type CSSProperties } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
-import { type PayeeEntity } from 'loot-core/src/types/models';
+import {
+  SvgArrowThinRight,
+  SvgBookmark,
+  SvgLightBulb,
+} from '@actual-app/components/icons/v1';
+import { Menu } from '@actual-app/components/menu';
+import { Popover } from '@actual-app/components/popover';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { Tooltip } from '@actual-app/components/tooltip';
 
-import { useContextMenu } from '../../hooks/useContextMenu';
-import { useSelectedDispatch } from '../../hooks/useSelected';
-import { SvgArrowThinRight, SvgBookmark } from '../../icons/v1';
-import { theme } from '../../style';
-import { Menu } from '../common/Menu';
-import { Popover } from '../common/Popover';
-import { Text } from '../common/Text';
+import { type PayeeEntity } from 'loot-core/types/models';
+
 import {
   Cell,
   CellButton,
@@ -18,7 +22,13 @@ import {
   InputCell,
   Row,
   SelectCell,
-} from '../table';
+} from '@desktop-client/components/table';
+import { useContextMenu } from '@desktop-client/hooks/useContextMenu';
+import {
+  useSelectedDispatch,
+  useSelectedItems,
+} from '@desktop-client/hooks/useSelected';
+import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
 
 type RuleButtonProps = {
   ruleCount: number;
@@ -46,6 +56,8 @@ function RuleButton({ ruleCount, focused, onEdit, onClick }: RuleButtonProps) {
           border: '1px solid ' + theme.noticeBackground,
           color: theme.noticeTextDark,
           fontSize: 12,
+          cursor: 'pointer',
+          ':hover': { backgroundColor: theme.noticeBackgroundLight },
         }}
         onEdit={onEdit}
         onSelect={onClick}
@@ -63,7 +75,10 @@ function RuleButton({ ruleCount, focused, onEdit, onClick }: RuleButtonProps) {
   );
 }
 
-type EditablePayeeFields = keyof Pick<PayeeEntity, 'name' | 'favorite'>;
+type EditablePayeeFields = keyof Pick<
+  PayeeEntity,
+  'name' | 'favorite' | 'learn_categories'
+>;
 
 type PayeeTableRowProps = {
   payee: PayeeEntity;
@@ -79,7 +94,7 @@ type PayeeTableRowProps = {
     field: T,
     value: PayeeEntity[T],
   ) => void;
-  onDelete: (id: PayeeEntity['id']) => void;
+  onDelete: (ids: PayeeEntity['id'][]) => void;
   onViewRules: (id: PayeeEntity['id']) => void;
   onCreateRule: (id: PayeeEntity['id']) => void;
   style?: CSSProperties;
@@ -103,10 +118,19 @@ export const PayeeTableRow = memo(
   }: PayeeTableRowProps) => {
     const { id } = payee;
     const dispatchSelected = useSelectedDispatch();
+    const selectedItems = useSelectedItems();
+    const selectedIds = useMemo(() => {
+      const ids =
+        selectedItems && selectedItems.size > 0 ? selectedItems : [payee.id];
+      return Array.from(new Set(ids));
+    }, [payee, selectedItems]);
+
     const borderColor = selected
       ? theme.tableBorderSelected
       : theme.tableBorder;
     const backgroundFocus = hovered || focusedField === 'select';
+    const [learnCategories = 'true'] = useSyncedPref('learn-categories');
+    const isLearnCategoriesEnabled = String(learnCategories) === 'true';
 
     const { t } = useTranslation();
 
@@ -157,15 +181,32 @@ export const PayeeTableRow = memo(
                 text: payee.favorite ? t('Unfavorite') : t('Favorite'),
               },
               ruleCount > 0 && { name: 'view-rules', text: t('View rules') },
-              { name: 'create-rule', text: t('Create rule') },
+              selectedIds.length === 1 && {
+                name: 'create-rule',
+                text: t('Create rule'),
+              },
+              isLearnCategoriesEnabled &&
+                (payee.learn_categories
+                  ? {
+                      name: 'learn',
+                      text: t('Disable learning'),
+                    }
+                  : { name: 'learn', text: t('Enable learning') }),
             ]}
             onMenuSelect={name => {
               switch (name) {
                 case 'delete':
-                  onDelete(id);
+                  onDelete(selectedIds);
                   break;
                 case 'favorite':
-                  onUpdate(id, 'favorite', payee.favorite ? 0 : 1);
+                  selectedIds.forEach(id => {
+                    onUpdate(id, 'favorite', !payee.favorite);
+                  });
+                  break;
+                case 'learn':
+                  selectedIds.forEach(id => {
+                    onUpdate(id, 'learn_categories', !payee.learn_categories);
+                  });
                   break;
                 case 'view-rules':
                   onViewRules(id);
@@ -198,18 +239,29 @@ export const PayeeTableRow = memo(
           }}
         />
         <CustomCell
-          width={10}
+          width={20}
           exposed={!payee.transfer_acct}
           onBlur={() => {}}
           onUpdate={() => {}}
           onClick={() => {}}
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            flexDirection: 'row',
+          }}
         >
           {() => {
-            if (payee.favorite) {
-              return <SvgBookmark />;
-            } else {
-              return;
-            }
+            return (
+              <>
+                {payee.favorite ? <SvgBookmark style={{ width: 10 }} /> : null}
+                {isLearnCategoriesEnabled && !payee.learn_categories && (
+                  <Tooltip content={t('Category learning disabled')}>
+                    <SvgLightBulb style={{ color: 'red', width: 10 }} />
+                  </Tooltip>
+                )}
+              </>
+            );
           }}
         </CustomCell>
         <InputCell

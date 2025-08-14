@@ -8,29 +8,47 @@ import React, {
 } from 'react';
 import { Trans } from 'react-i18next';
 
+import { Button } from '@actual-app/components/button';
+import { SvgCheveronDown } from '@actual-app/components/icons/v1';
+import {
+  SvgArrowsSynchronize,
+  SvgCalendar3,
+} from '@actual-app/components/icons/v2';
+import { Popover } from '@actual-app/components/popover';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 
-import { trackingBudget } from 'loot-core/src/client/queries';
-import { evalArithmetic } from 'loot-core/src/shared/arithmetic';
-import * as monthUtils from 'loot-core/src/shared/months';
-import { integerToCurrency, amountToInteger } from 'loot-core/src/shared/util';
-
-import { useUndo } from '../../../hooks/useUndo';
-import { SvgCheveronDown } from '../../../icons/v1';
-import { styles, theme } from '../../../style';
-import { Button } from '../../common/Button2';
-import { Popover } from '../../common/Popover';
-import { Text } from '../../common/Text';
-import { View } from '../../common/View';
-import { type Binding, type SheetFields } from '../../spreadsheet';
-import { CellValue, CellValueText } from '../../spreadsheet/CellValue';
-import { useSheetValue } from '../../spreadsheet/useSheetValue';
-import { Field, SheetCell, type SheetCellProps } from '../../table';
-import { BalanceWithCarryover } from '../BalanceWithCarryover';
-import { makeAmountGrey } from '../util';
+import { evalArithmetic } from 'loot-core/shared/arithmetic';
+import * as monthUtils from 'loot-core/shared/months';
+import { integerToCurrency, amountToInteger } from 'loot-core/shared/util';
+import {
+  type CategoryEntity,
+  type CategoryGroupEntity,
+} from 'loot-core/types/models';
 
 import { BalanceMenu } from './BalanceMenu';
 import { BudgetMenu } from './BudgetMenu';
+
+import { BalanceWithCarryover } from '@desktop-client/components/budget/BalanceWithCarryover';
+import { makeAmountGrey } from '@desktop-client/components/budget/util';
+import {
+  CellValue,
+  CellValueText,
+} from '@desktop-client/components/spreadsheet/CellValue';
+import {
+  Field,
+  SheetCell,
+  type SheetCellProps,
+} from '@desktop-client/components/table';
+import { useCategoryScheduleGoalTemplateIndicator } from '@desktop-client/hooks/useCategoryScheduleGoalTemplateIndicator';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { useSheetValue } from '@desktop-client/hooks/useSheetValue';
+import { useUndo } from '@desktop-client/hooks/useUndo';
+import { type Binding, type SheetFields } from '@desktop-client/spreadsheet';
+import { trackingBudget } from '@desktop-client/spreadsheet/bindings';
 
 export const useTrackingSheetValue = <
   FieldName extends SheetFields<'tracking-budget'>,
@@ -133,7 +151,7 @@ export function IncomeHeaderMonth() {
 
 type GroupMonthProps = {
   month: string;
-  group: { id: string; is_income: boolean };
+  group: CategoryGroupEntity;
 };
 export const GroupMonth = memo(function GroupMonth({
   month,
@@ -193,11 +211,11 @@ export const GroupMonth = memo(function GroupMonth({
 
 type CategoryMonthProps = {
   month: string;
-  category: { id: string; name: string; is_income: boolean };
+  category: CategoryEntity;
   editing: boolean;
-  onEdit: (id: string | null, month?: string) => void;
+  onEdit: (id: CategoryEntity['id'] | null, month?: string) => void;
   onBudgetAction: (month: string, action: string, arg: unknown) => void;
-  onShowActivity: (id: string, month: string) => void;
+  onShowActivity: (id: CategoryEntity['id'], month: string) => void;
 };
 export const CategoryMonth = memo(function CategoryMonth({
   month,
@@ -220,6 +238,16 @@ export const CategoryMonth = memo(function CategoryMonth({
   };
 
   const { showUndoNotification } = useUndo();
+
+  const navigate = useNavigate();
+
+  const { schedule, scheduleStatus, isScheduleRecurring, description } =
+    useCategoryScheduleGoalTemplateIndicator({
+      category,
+      month,
+    });
+
+  const showScheduleIndicator = schedule && scheduleStatus;
 
   return (
     <View
@@ -362,10 +390,44 @@ export const CategoryMonth = memo(function CategoryMonth({
         />
       </View>
       <Field name="spent" width="flex" style={{ textAlign: 'right' }}>
-        <span
+        <View
           data-testid="category-month-spent"
           onClick={() => onShowActivity(category.id, month)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: showScheduleIndicator
+              ? 'space-between'
+              : 'flex-end',
+            gap: 2,
+          }}
         >
+          {showScheduleIndicator && (
+            <View title={description}>
+              <Button
+                variant="bare"
+                style={{
+                  color:
+                    scheduleStatus === 'missed'
+                      ? theme.errorText
+                      : scheduleStatus === 'due'
+                        ? theme.warningText
+                        : theme.upcomingText,
+                }}
+                onPress={() =>
+                  schedule._account
+                    ? navigate(`/accounts/${schedule._account}`)
+                    : navigate('/accounts')
+                }
+              >
+                {isScheduleRecurring ? (
+                  <SvgArrowsSynchronize style={{ width: 12, height: 12 }} />
+                ) : (
+                  <SvgCalendar3 style={{ width: 12, height: 12 }} />
+                )}
+              </Button>
+            </View>
+          )}
           <TrackingCellValue
             binding={trackingBudget.catSumAmount(category.id)}
             type="financial"
@@ -383,7 +445,7 @@ export const CategoryMonth = memo(function CategoryMonth({
               />
             )}
           </TrackingCellValue>
-        </span>
+        </View>
       </Field>
 
       {!category.is_income && (

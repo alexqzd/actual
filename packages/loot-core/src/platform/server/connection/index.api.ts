@@ -1,4 +1,4 @@
-import type * as T from '.';
+import type * as T from './index-types';
 
 export const init: T.Init = function () {};
 

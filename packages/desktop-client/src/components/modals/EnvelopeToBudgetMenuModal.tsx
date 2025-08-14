@@ -1,21 +1,28 @@
-import React, {
-  type ComponentPropsWithoutRef,
-  type CSSProperties,
-} from 'react';
+import React, { type CSSProperties } from 'react';
 
-import { theme, styles } from '../../style';
-import { ToBudgetMenu } from '../budget/envelope/budgetsummary/ToBudgetMenu';
-import { Modal, ModalCloseButton, ModalHeader } from '../common/Modal';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
 
-type EnvelopeToBudgetMenuModalProps = ComponentPropsWithoutRef<
-  typeof ToBudgetMenu
->;
+import { ToBudgetMenu } from '@desktop-client/components/budget/envelope/budgetsummary/ToBudgetMenu';
+import {
+  Modal,
+  ModalCloseButton,
+  ModalHeader,
+} from '@desktop-client/components/common/Modal';
+import { type Modal as ModalType } from '@desktop-client/modals/modalsSlice';
+
+type EnvelopeToBudgetMenuModalProps = Extract<
+  ModalType,
+  { name: 'envelope-summary-to-budget-menu' }
+>['options'];
 
 export function EnvelopeToBudgetMenuModal({
   onTransfer,
   onCover,
   onHoldBuffer,
   onResetHoldBuffer,
+  onBudgetAction,
+  month,
 }: EnvelopeToBudgetMenuModalProps) {
   const defaultMenuItemStyle: CSSProperties = {
     ...styles.mobileMenuItem,
@@ -38,6 +45,8 @@ export function EnvelopeToBudgetMenuModal({
             onCover={onCover}
             onHoldBuffer={onHoldBuffer}
             onResetHoldBuffer={onResetHoldBuffer}
+            onBudgetAction={onBudgetAction}
+            month={month}
           />
         </>
       )}

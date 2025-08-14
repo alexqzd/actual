@@ -1,20 +1,15 @@
 import React, { type CSSProperties, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
 
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { SvgAdd } from '@actual-app/components/icons/v1';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 import { Resizable } from 're-resizable';
 
-import { replaceModal } from 'loot-core/src/client/actions';
-import * as Platform from 'loot-core/src/client/platform';
-
-import { useGlobalPref } from '../../hooks/useGlobalPref';
-import { useLocalPref } from '../../hooks/useLocalPref';
-import { useResizeObserver } from '../../hooks/useResizeObserver';
-import { SvgAdd } from '../../icons/v1';
-import { styles, theme } from '../../style';
-import { View } from '../common/View';
-import { useResponsive } from '../responsive/ResponsiveProvider';
+import * as Platform from 'loot-core/shared/platform';
 
 import { Accounts } from './Accounts';
 import { BudgetName } from './BudgetName';
@@ -22,6 +17,12 @@ import { PrimaryButtons } from './PrimaryButtons';
 import { SecondaryButtons } from './SecondaryButtons';
 import { useSidebar } from './SidebarProvider';
 import { ToggleButton } from './ToggleButton';
+
+import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
+import { useLocalPref } from '@desktop-client/hooks/useLocalPref';
+import { useResizeObserver } from '@desktop-client/hooks/useResizeObserver';
+import { replaceModal } from '@desktop-client/modals/modalsSlice';
+import { useDispatch } from '@desktop-client/redux';
 
 export function Sidebar() {
   const hasWindowButtons = !Platform.isBrowser && Platform.OS === 'mac';
@@ -58,7 +59,7 @@ export function Sidebar() {
   };
 
   const onAddAccount = () => {
-    dispatch(replaceModal('add-account'));
+    dispatch(replaceModal({ modal: { name: 'add-account', options: {} } }));
   };
 
   const containerRef = useResizeObserver<HTMLDivElement>(rect => {

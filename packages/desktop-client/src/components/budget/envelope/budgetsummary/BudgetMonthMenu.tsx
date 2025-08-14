@@ -1,8 +1,9 @@
 import React, { type ComponentPropsWithoutRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useFeatureFlag } from '../../../../hooks/useFeatureFlag';
-import { Menu } from '../../../common/Menu';
+import { Menu } from '@actual-app/components/menu';
+
+import { useFeatureFlag } from '@desktop-client/hooks/useFeatureFlag';
 
 type BudgetMonthMenuProps = Omit<
   ComponentPropsWithoutRef<typeof Menu>,
@@ -43,6 +44,12 @@ export function BudgetMonthMenu({
           case 'set-3-avg':
             onSetMonthsAverage(3);
             break;
+          case 'set-6-avg':
+            onSetMonthsAverage(6);
+            break;
+          case 'set-12-avg':
+            onSetMonthsAverage(12);
+            break;
           case 'check-templates':
             onCheckTemplates();
             break;
@@ -63,6 +70,14 @@ export function BudgetMonthMenu({
         {
           name: 'set-3-avg',
           text: t('Set budgets to 3 month average'),
+        },
+        {
+          name: 'set-6-avg',
+          text: t('Set budgets to 6 month average'),
+        },
+        {
+          name: 'set-12-avg',
+          text: t('Set budgets to 12 month average'),
         },
         ...(isGoalTemplatesEnabled
           ? [

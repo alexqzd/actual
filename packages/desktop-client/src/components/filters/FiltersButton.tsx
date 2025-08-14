@@ -1,7 +1,8 @@
 import React from 'react';
+import { Trans } from 'react-i18next';
 
-import { SvgFilter } from '../../icons/v1/Filter';
-import { Button } from '../common/Button2';
+import { Button } from '@actual-app/components/button';
+import { SvgFilter } from '@actual-app/components/icons/v1';
 
 export function FiltersButton({ onPress }: { onPress: () => void }) {
   return (
@@ -9,7 +10,7 @@ export function FiltersButton({ onPress }: { onPress: () => void }) {
       <SvgFilter
         style={{ width: 12, height: 12, marginRight: 5, flexShrink: 0 }}
       />{' '}
-      Filter
+      <Trans>Filter</Trans>
     </Button>
   );
 }

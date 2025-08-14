@@ -5,11 +5,14 @@ import React, {
   type CSSProperties,
 } from 'react';
 
-import { SvgExclamationOutline, SvgInformationOutline } from '../icons/v1';
-import { styles, theme } from '../style';
-
-import { Text } from './common/Text';
-import { View } from './common/View';
+import {
+  SvgExclamationOutline,
+  SvgInformationOutline,
+} from '@actual-app/components/icons/v1';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 
 type AlertProps = {
   icon?: ComponentType<{ width?: number; style?: CSSProperties }>;

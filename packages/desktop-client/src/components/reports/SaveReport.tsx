@@ -1,19 +1,20 @@
 import React, { createRef, useRef, useState } from 'react';
 
-import { useReports } from 'loot-core/client/data-hooks/reports';
-import { send, sendCatch } from 'loot-core/src/platform/client/fetch';
-import { type CustomReportEntity } from 'loot-core/src/types/models';
+import { Button } from '@actual-app/components/button';
+import { SvgExpandArrow } from '@actual-app/components/icons/v0';
+import { Popover } from '@actual-app/components/popover';
+import { Text } from '@actual-app/components/text';
+import { View } from '@actual-app/components/view';
 
-import { SvgExpandArrow } from '../../icons/v0';
-import { Button } from '../common/Button2';
-import { Popover } from '../common/Popover';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
+import { send, sendCatch } from 'loot-core/platform/client/fetch';
+import { type CustomReportEntity } from 'loot-core/types/models';
 
 import { SaveReportChoose } from './SaveReportChoose';
 import { SaveReportDelete } from './SaveReportDelete';
 import { SaveReportMenu } from './SaveReportMenu';
 import { SaveReportName } from './SaveReportName';
+
+import { useReports } from '@desktop-client/hooks/useReports';
 
 type SaveReportProps<T extends CustomReportEntity = CustomReportEntity> = {
   customReportItems: T;

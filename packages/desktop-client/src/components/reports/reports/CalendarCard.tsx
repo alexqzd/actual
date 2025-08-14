@@ -10,37 +10,41 @@ import React, {
 } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { Block } from '@actual-app/components/block';
+import { Button } from '@actual-app/components/button';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import {
+  SvgArrowThickDown,
+  SvgArrowThickUp,
+} from '@actual-app/components/icons/v1';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { Tooltip } from '@actual-app/components/tooltip';
+import { View } from '@actual-app/components/view';
 import { format } from 'date-fns';
 import { debounce } from 'debounce';
 
+import * as monthUtils from 'loot-core/shared/months';
 import { amountToCurrency } from 'loot-core/shared/util';
-import * as monthUtils from 'loot-core/src/shared/months';
 import { type CalendarWidget } from 'loot-core/types/models';
 import { type SyncedPrefs } from 'loot-core/types/prefs';
 
-import { useMergedRefs } from '../../../hooks/useMergedRefs';
-import { useNavigate } from '../../../hooks/useNavigate';
-import { useResizeObserver } from '../../../hooks/useResizeObserver';
-import { SvgArrowThickDown, SvgArrowThickUp } from '../../../icons/v1';
-import { styles, theme } from '../../../style';
-import { Block } from '../../common/Block';
-import { Button } from '../../common/Button2';
-import { Tooltip } from '../../common/Tooltip';
-import { View } from '../../common/View';
-import { PrivacyFilter } from '../../PrivacyFilter';
-import { useResponsive } from '../../responsive/ResponsiveProvider';
-import { chartTheme } from '../chart-theme';
-import { DateRange } from '../DateRange';
-import { CalendarGraph } from '../graphs/CalendarGraph';
-import { LoadingIndicator } from '../LoadingIndicator';
-import { ReportCard } from '../ReportCard';
-import { ReportCardName } from '../ReportCardName';
-import { calculateTimeRange } from '../reportRanges';
+import { PrivacyFilter } from '@desktop-client/components/PrivacyFilter';
+import { chartTheme } from '@desktop-client/components/reports/chart-theme';
+import { DateRange } from '@desktop-client/components/reports/DateRange';
+import { CalendarGraph } from '@desktop-client/components/reports/graphs/CalendarGraph';
+import { LoadingIndicator } from '@desktop-client/components/reports/LoadingIndicator';
+import { ReportCard } from '@desktop-client/components/reports/ReportCard';
+import { ReportCardName } from '@desktop-client/components/reports/ReportCardName';
+import { calculateTimeRange } from '@desktop-client/components/reports/reportRanges';
 import {
   type CalendarDataType,
   calendarSpreadsheet,
-} from '../spreadsheets/calendar-spreadsheet';
-import { useReport } from '../useReport';
+} from '@desktop-client/components/reports/spreadsheets/calendar-spreadsheet';
+import { useReport } from '@desktop-client/components/reports/useReport';
+import { useMergedRefs } from '@desktop-client/hooks/useMergedRefs';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { useResizeObserver } from '@desktop-client/hooks/useResizeObserver';
 
 type CalendarCardProps = {
   widgetId: string;
@@ -173,7 +177,7 @@ export function CalendarCard({
       }}
     >
       <View
-        ref={el => el && cardRef(el)}
+        ref={el => (el ? cardRef(el) : undefined)}
         style={{ flex: 1, margin: 2, overflow: 'hidden', width: '100%' }}
       >
         <View style={{ flexDirection: 'row', padding: 20, paddingBottom: 0 }}>
@@ -302,6 +306,7 @@ export function CalendarCard({
                   selectedMonthNameFormat={selectedMonthNameFormat}
                   index={index}
                   widgetId={widgetId}
+                  isEditing={isEditing}
                 />
               ))
             ) : (
@@ -327,6 +332,7 @@ type CalendarCardInnerProps = {
   selectedMonthNameFormat: string;
   index: number;
   widgetId: string;
+  isEditing?: boolean;
 };
 function CalendarCardInner({
   calendar,
@@ -335,7 +341,9 @@ function CalendarCardInner({
   selectedMonthNameFormat,
   index,
   widgetId,
+  isEditing,
 }: CalendarCardInnerProps) {
+  const { t } = useTranslation();
   const [monthNameVisible, setMonthNameVisible] = useState(true);
   const monthFormatSizeContainers = useRef<(HTMLSpanElement | null)[]>(
     new Array(5),
@@ -467,7 +475,7 @@ function CalendarCardInner({
               fontSize: '10px',
               marginRight: 10,
             }}
-            aria-label="Income"
+            aria-label={t('Income')}
           >
             {calendar.totalIncome !== 0 ? (
               <>
@@ -490,7 +498,7 @@ function CalendarCardInner({
               flexDirection: 'row',
               fontSize: '10px',
             }}
-            aria-label="Expenses"
+            aria-label={t('Expenses')}
           >
             {calendar.totalExpense !== 0 ? (
               <>
@@ -513,6 +521,7 @@ function CalendarCardInner({
         data={calendar.data}
         start={calendar.start}
         firstDayOfWeekIdx={firstDayOfWeekIdx}
+        isEditing={isEditing}
         onDayClick={date => {
           if (date) {
             navigate(

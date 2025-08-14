@@ -17,6 +17,7 @@ import {
 } from '../shared/transactions';
 import { integerToAmount } from '../shared/util';
 import { Handlers } from '../types/handlers';
+import { AccountEntity, CategoryGroupEntity } from '../types/models';
 import { ServerHandlers } from '../types/server-handlers';
 
 import { addTransactions } from './accounts/sync';
@@ -28,7 +29,7 @@ import {
   payeeModel,
   remoteFileModel,
 } from './api-models';
-import { runQuery as aqlQuery } from './aql';
+import { aqlQuery } from './aql';
 import * as cloudStorage from './cloud-storage';
 import { type RemoteFile } from './cloud-storage';
 import * as db from './db';
@@ -53,7 +54,7 @@ function withMutation<Params extends Array<unknown>, ReturnType>(
         const latestTimestamp = getClock().timestamp.toString();
         const result = await handler(...args);
 
-        const rows = await db.all(
+        const rows = await db.all<Pick<db.DbCrdtMessage, 'dataset'>>(
           'SELECT DISTINCT dataset FROM messages_crdt WHERE timestamp > ?',
           [latestTimestamp],
         );
@@ -94,9 +95,10 @@ async function validateExpenseCategory(debug, id) {
     throw APIError(`${debug}: category id is required`);
   }
 
-  const row = await db.first('SELECT is_income FROM categories WHERE id = ?', [
-    id,
-  ]);
+  const row = await db.first<Pick<db.DbCategory, 'is_income'>>(
+    'SELECT is_income FROM categories WHERE id = ?',
+    [id],
+  );
 
   if (!row) {
     throw APIError(`${debug}: category “${id}” does not exist`);
@@ -201,7 +203,7 @@ handlers['api/download-budget'] = async function ({ syncId, password }) {
     }
 
     const result = await handlers['key-test']({
-      fileId: remoteBudget ? remoteBudget.fileId : localBudget.cloudFileId,
+      cloudFileId: remoteBudget ? remoteBudget.fileId : localBudget.cloudFileId,
       password,
     });
     if (result.error) {
@@ -221,7 +223,7 @@ handlers['api/download-budget'] = async function ({ syncId, password }) {
 
   // Download the remote file (no need to perform a sync as the file will already be up-to-date)
   const result = await handlers['download-budget']({
-    fileId: remoteBudget.fileId,
+    cloudFileId: remoteBudget.fileId,
   });
   if (result.error) {
     console.log('Full error details', result.error);
@@ -256,7 +258,7 @@ handlers['api/bank-sync'] = async function (args) {
       ids: [args.accountId],
     });
 
-    allErrors.push(errors);
+    allErrors.push(...errors);
   } else {
     const accountsData = await handlers['accounts-get']();
     const accountIdsToSync = accountsData.map(a => a.id);
@@ -354,7 +356,9 @@ handlers['api/budget-month'] = async function ({ month }) {
   checkFileOpen();
   await validateMonth(month);
 
-  const groups = await db.getCategoriesGrouped();
+  const { data: groups }: { data: CategoryGroupEntity[] } = await aqlQuery(
+    q('category_groups').select('*'),
+  );
   const sheetName = monthUtils.sheetForMonth(month);
 
   function value(name) {
@@ -461,12 +465,14 @@ handlers['api/transactions-export'] = async function ({
   transactions,
   categoryGroups,
   payees,
+  accounts,
 }) {
   checkFileOpen();
   return handlers['transactions-export']({
     transactions,
     categoryGroups,
     payees,
+    accounts,
   });
 };
 
@@ -474,12 +480,14 @@ handlers['api/transactions-import'] = withMutation(async function ({
   accountId,
   transactions,
   isPreview = false,
+  opts,
 }) {
   checkFileOpen();
   return handlers['transactions-import']({
     accountId,
     transactions,
     isPreview,
+    opts,
   });
 });
 
@@ -553,7 +561,8 @@ handlers['api/transaction-delete'] = withMutation(async function ({ id }) {
 
 handlers['api/accounts-get'] = async function () {
   checkFileOpen();
-  const accounts = await db.getAccounts();
+  // TODO: Force cast to AccountEntity. This should be updated to an AQL query.
+  const accounts = (await db.getAccounts()) as AccountEntity[];
   return accounts.map(account => accountModel.toExternal(account));
 };
 
@@ -628,7 +637,10 @@ handlers['api/category-group-create'] = withMutation(async function ({
   group,
 }) {
   checkFileOpen();
-  return handlers['category-group-create']({ name: group.name });
+  return handlers['category-group-create']({
+    name: group.name,
+    hidden: group.hidden,
+  });
 });
 
 handlers['api/category-group-update'] = withMutation(async function ({

@@ -40,7 +40,15 @@ export function getUploadError({
   }
 }
 
-export function getDownloadError({ reason, meta, fileName }) {
+export function getDownloadError({
+  reason,
+  meta,
+  fileName,
+}: {
+  reason: string;
+  meta?: unknown;
+  fileName?: string;
+}) {
   switch (reason) {
     case 'network':
     case 'download-failure':
@@ -65,7 +73,10 @@ export function getDownloadError({ reason, meta, fileName }) {
       );
 
     default:
-      const info = meta && meta.fileId ? `, fileId: ${meta.fileId}` : '';
+      const info =
+        meta && typeof meta === 'object' && 'fileId' in meta && meta.fileId
+          ? `, fileId: ${meta.fileId}`
+          : '';
       return t(
         'Something went wrong trying to download that file, sorry! Visit https://actualbudget.org/contact/ for support. reason: {{reason}}{{info}}',
         { reason, info },
@@ -101,7 +112,7 @@ export function getSyncError(error, id) {
     return t('This budget cannot be loaded with this version of the app.');
   } else if (error === 'budget-not-found') {
     return t(
-      'Budget “{id}” not found. Check the id of your budget in the Advanced section of the settings page.',
+      'Budget “{{id}}” not found. Check the ID of your budget in the Advanced section of the settings page.',
       { id },
     );
   } else {
@@ -129,7 +140,7 @@ export function getUserAccessErrors(reason: string) {
     case 'unauthorized':
       return t('You are not logged in.');
     case 'token-expired':
-      return t('Login expired, please login again.');
+      return t('Login expired, please log in again.');
     case 'user-cant-be-empty':
       return t('Please select a user.');
     case 'invalid-file-id':

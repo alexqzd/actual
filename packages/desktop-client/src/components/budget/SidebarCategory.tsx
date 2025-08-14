@@ -2,20 +2,26 @@
 import React, { type CSSProperties, type Ref, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Button } from '@actual-app/components/button';
+import { SvgCheveronDown } from '@actual-app/components/icons/v1';
+import { Menu } from '@actual-app/components/menu';
+import { Popover } from '@actual-app/components/popover';
+import { TextOneLine } from '@actual-app/components/text-one-line';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
 import {
   type CategoryGroupEntity,
   type CategoryEntity,
-} from 'loot-core/src/types/models';
+} from 'loot-core/types/models';
 
-import { useContextMenu } from '../../hooks/useContextMenu';
-import { SvgCheveronDown } from '../../icons/v1';
-import { theme } from '../../style';
-import { Button } from '../common/Button2';
-import { Menu } from '../common/Menu';
-import { Popover } from '../common/Popover';
-import { View } from '../common/View';
-import { NotesButton } from '../NotesButton';
-import { InputCell } from '../table';
+import { CategoryAutomationButton } from './goals/CategoryAutomationButton';
+
+import { NotesButton } from '@desktop-client/components/NotesButton';
+import { InputCell } from '@desktop-client/components/table';
+import { useContextMenu } from '@desktop-client/hooks/useContextMenu';
+import { useFeatureFlag } from '@desktop-client/hooks/useFeatureFlag';
+import { useGlobalPref } from '@desktop-client/hooks/useGlobalPref';
 
 type SidebarCategoryProps = {
   innerRef: Ref<HTMLDivElement>;
@@ -24,12 +30,13 @@ type SidebarCategoryProps = {
   dragPreview?: boolean;
   dragging?: boolean;
   editing: boolean;
+  goalsShown?: boolean;
   style?: CSSProperties;
   borderColor?: string;
   isLast?: boolean;
-  onEditName: (id: string) => void;
+  onEditName: (id: CategoryEntity['id']) => void;
   onSave: (category: CategoryEntity) => void;
-  onDelete: (id: string) => Promise<void>;
+  onDelete: (id: CategoryEntity['id']) => Promise<void>;
   onHideNewCategory?: () => void;
 };
 
@@ -40,6 +47,7 @@ export function SidebarCategory({
   dragPreview,
   dragging,
   editing,
+  goalsShown = false,
   style,
   isLast,
   onEditName,
@@ -48,6 +56,9 @@ export function SidebarCategory({
   onHideNewCategory,
 }: SidebarCategoryProps) {
   const { t } = useTranslation();
+  const isGoalTemplatesUIEnabled = useFeatureFlag('goalTemplatesUIEnabled');
+  const [categoryExpandedStatePref] = useGlobalPref('categoryExpandedState');
+  const categoryExpandedState = categoryExpandedStatePref ?? 0;
 
   const temporary = category.id === 'new';
   const { setMenuOpen, menuOpen, handleContextMenu, resetPosition, position } =
@@ -68,17 +79,7 @@ export function SidebarCategory({
       ref={triggerRef}
       onContextMenu={handleContextMenu}
     >
-      <div
-        data-testid="category-name"
-        style={{
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          minWidth: 0,
-        }}
-      >
-        {category.name}
-      </div>
+      <TextOneLine data-testid="category-name">{category.name}</TextOneLine>
       <View style={{ flexShrink: 0, marginLeft: 5 }}>
         <Button
           variant="bare"
@@ -117,17 +118,25 @@ export function SidebarCategory({
               setMenuOpen(false);
             }}
             items={[
-              { name: 'rename', text: 'Rename' },
+              { name: 'rename', text: t('Rename') },
               !categoryGroup?.hidden && {
                 name: 'toggle-visibility',
-                text: category.hidden ? 'Show' : 'Hide',
+                text: category.hidden ? t('Show') : t('Hide'),
               },
-              { name: 'delete', text: 'Delete' },
+              { name: 'delete', text: t('Delete') },
             ]}
           />
         </Popover>
       </View>
       <View style={{ flex: 1 }} />
+      {!goalsShown && isGoalTemplatesUIEnabled && (
+        <View style={{ flexShrink: 0 }}>
+          <CategoryAutomationButton
+            style={dragging && { color: 'currentColor' }}
+            defaultColor={theme.pageTextLight}
+          />
+        </View>
+      )}
       <View style={{ flexShrink: 0 }}>
         <NotesButton
           id={category.id}
@@ -142,7 +151,7 @@ export function SidebarCategory({
     <View
       innerRef={innerRef}
       style={{
-        width: 200,
+        width: 200 + 100 * categoryExpandedState,
         overflow: 'hidden',
         '& .hover-visible': {
           display: 'none',
@@ -192,7 +201,7 @@ export function SidebarCategory({
         onBlur={() => onEditName(null)}
         style={{ paddingLeft: 13, ...(isLast && { borderBottomWidth: 0 }) }}
         inputProps={{
-          placeholder: temporary ? t('New Category Name') : '',
+          placeholder: temporary ? t('New category name') : '',
         }}
       />
     </View>

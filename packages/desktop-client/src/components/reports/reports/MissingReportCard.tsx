@@ -1,7 +1,8 @@
 import React, { type ReactNode } from 'react';
 
-import { View } from '../../common/View';
-import { ReportCard } from '../ReportCard';
+import { View } from '@actual-app/components/view';
+
+import { ReportCard } from '@desktop-client/components/reports/ReportCard';
 
 type MissingReportCardProps = {
   isEditing?: boolean;

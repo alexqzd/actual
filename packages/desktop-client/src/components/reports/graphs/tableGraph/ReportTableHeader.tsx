@@ -5,22 +5,23 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+
 import {
   type balanceTypeOpType,
   type IntervalEntity,
-} from 'loot-core/src/types/models/reports';
+} from 'loot-core/types/models';
 
-import { theme } from '../../../../style';
-import { View } from '../../../common/View';
-import { Row, Cell } from '../../../table';
-import { ReportOptions } from '../../ReportOptions';
+import { ReportOptions } from '@desktop-client/components/reports/ReportOptions';
+import { Row, Cell } from '@desktop-client/components/table';
 
 type ReportTableHeaderProps = {
   groupBy: string;
   interval: string;
   data: IntervalEntity[];
   balanceTypeOp: balanceTypeOpType;
-  headerScrollRef: RefObject<HTMLDivElement>;
+  headerScrollRef: RefObject<HTMLDivElement | null>;
   handleScroll: UIEventHandler<HTMLDivElement>;
   compact: boolean;
   style?: CSSProperties;

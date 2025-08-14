@@ -1,36 +1,25 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Dialog, DialogTrigger } from 'react-aria-components';
 import { Responsive, WidthProvider, type Layout } from 'react-grid-layout';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Trans, useTranslation } from 'react-i18next';
-import { useDispatch } from 'react-redux';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router';
 
-import {
-  addNotification,
-  removeNotification,
-} from 'loot-core/src/client/actions';
-import { useDashboard } from 'loot-core/src/client/data-hooks/dashboard';
-import { useReports } from 'loot-core/src/client/data-hooks/reports';
-import { send } from 'loot-core/src/platform/client/fetch';
+import { Button } from '@actual-app/components/button';
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { SvgDotsHorizontalTriple } from '@actual-app/components/icons/v1';
+import { Menu } from '@actual-app/components/menu';
+import { Popover } from '@actual-app/components/popover';
+import { breakpoints } from '@actual-app/components/tokens';
+import { View } from '@actual-app/components/view';
+
+import { send } from 'loot-core/platform/client/fetch';
 import {
   type CustomReportWidget,
   type ExportImportDashboard,
   type MarkdownWidget,
   type Widget,
-} from 'loot-core/src/types/models';
-
-import { useAccounts } from '../../hooks/useAccounts';
-import { useNavigate } from '../../hooks/useNavigate';
-import { useSyncedPref } from '../../hooks/useSyncedPref';
-import { breakpoints } from '../../tokens';
-import { Button } from '../common/Button2';
-import { Menu } from '../common/Menu';
-import { MenuButton } from '../common/MenuButton';
-import { Popover } from '../common/Popover';
-import { View } from '../common/View';
-import { MOBILE_NAV_HEIGHT } from '../mobile/MobileNavTabs';
-import { MobilePageHeader, Page, PageHeader } from '../Page';
-import { useResponsive } from '../responsive/ResponsiveProvider';
+} from 'loot-core/types/models';
 
 import { NON_DRAGGABLE_AREA_CLASS_NAME } from './constants';
 import { LoadingIndicator } from './LoadingIndicator';
@@ -42,6 +31,24 @@ import { NetWorthCard } from './reports/NetWorthCard';
 import { SpendingCard } from './reports/SpendingCard';
 import './overview.scss';
 import { SummaryCard } from './reports/SummaryCard';
+
+import { MOBILE_NAV_HEIGHT } from '@desktop-client/components/mobile/MobileNavTabs';
+import {
+  MobilePageHeader,
+  Page,
+  PageHeader,
+} from '@desktop-client/components/Page';
+import { useAccounts } from '@desktop-client/hooks/useAccounts';
+import { useDashboard } from '@desktop-client/hooks/useDashboard';
+import { useNavigate } from '@desktop-client/hooks/useNavigate';
+import { useReports } from '@desktop-client/hooks/useReports';
+import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
+import { useUndo } from '@desktop-client/hooks/useUndo';
+import {
+  addNotification,
+  removeNotification,
+} from '@desktop-client/notifications/notificationsSlice';
+import { useDispatch } from '@desktop-client/redux';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -55,10 +62,6 @@ export function Overview() {
   const [_firstDayOfWeekIdx] = useSyncedPref('firstDayOfWeekIdx');
   const firstDayOfWeekIdx = _firstDayOfWeekIdx || '0';
 
-  const triggerRef = useRef(null);
-  const extraMenuTriggerRef = useRef(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [extraMenuOpen, setExtraMenuOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentBreakpoint, setCurrentBreakpoint] = useState<
@@ -82,21 +85,54 @@ export function Overview() {
   const location = useLocation();
   sessionStorage.setItem('url', location.pathname);
 
-  const baseLayout = widgets.map(widget => ({
-    i: widget.id,
-    w: widget.width,
-    h: widget.height,
-    minW:
-      isCustomReportWidget(widget) || widget.type === 'markdown-card' ? 2 : 3,
-    minH:
-      isCustomReportWidget(widget) || widget.type === 'markdown-card' ? 1 : 2,
-    ...widget,
-  }));
+  const mobileLayout = useMemo(() => {
+    if (!widgets || widgets.length === 0) {
+      return [];
+    }
 
-  const layout = baseLayout;
+    const sortedDesktopItems = [...widgets];
+
+    // Sort to ensure that items are ordered top-to-bottom, and for items on the same row, left-to-right
+    sortedDesktopItems.sort((a, b) => {
+      if (a.y < b.y) return -1;
+      if (a.y > b.y) return 1;
+      if (a.x < b.x) return -1;
+      if (a.x > b.x) return 1;
+      return 0;
+    });
+
+    let currentY = 0;
+    return sortedDesktopItems.map(widget => {
+      const itemY = currentY;
+      currentY += widget.height;
+
+      return {
+        ...widget,
+        i: widget.id,
+        x: 0,
+        y: itemY, // Calculate correct y co-ordinate to prevent react-grid-layout's auto-compacting behaviour
+        w: 1,
+        h: widget.height,
+      };
+    });
+  }, [widgets]);
+
+  const desktopLayout = useMemo(() => {
+    if (!widgets) return [];
+    return widgets.map(widget => ({
+      i: widget.id,
+      w: widget.width,
+      h: widget.height,
+      minW:
+        isCustomReportWidget(widget) || widget.type === 'markdown-card' ? 2 : 3,
+      minH:
+        isCustomReportWidget(widget) || widget.type === 'markdown-card' ? 1 : 2,
+      ...widget,
+    }));
+  }, [widgets]);
 
   const closeNotifications = () => {
-    dispatch(removeNotification('import'));
+    dispatch(removeNotification({ id: 'import' }));
   };
 
   // Close import notifications when doing "undo" operation
@@ -109,18 +145,22 @@ export function Overview() {
     [closeNotifications],
   );
 
+  const { undo } = useUndo();
+
   const onDispatchSucessNotification = (message: string) => {
     dispatch(
       addNotification({
-        id: 'import',
-        type: 'message',
-        sticky: true,
-        timeout: 30_000, // 30s
-        message,
-        messageActions: {
-          undo: () => {
-            closeNotifications();
-            window.__actionsForMenu.undo();
+        notification: {
+          id: 'import',
+          type: 'message',
+          sticky: true,
+          timeout: 30_000, // 30s
+          message,
+          messageActions: {
+            undo: () => {
+              closeNotifications();
+              undo();
+            },
           },
         },
       }),
@@ -170,7 +210,6 @@ export function Overview() {
       height: 2,
       meta,
     });
-    setMenuOpen(false);
   };
 
   const onRemoveWidget = (widgetId: string) => {
@@ -182,7 +221,7 @@ export function Overview() {
 
     const data = {
       version: 1,
-      widgets: layout.map(item => {
+      widgets: desktopLayout.map(item => {
         const widget = widgetMap.get(item.i);
 
         if (!widget) {
@@ -208,22 +247,24 @@ export function Overview() {
       }),
     } satisfies ExportImportDashboard;
 
-    window.Actual?.saveFile(
+    window.Actual.saveFile(
       JSON.stringify(data, null, 2),
       'dashboard.json',
-      'Export Dashboard',
+      t('Export Dashboard'),
     );
   };
   const onImport = async () => {
-    const openFileDialog = window.Actual?.openFileDialog;
+    const openFileDialog = window.Actual.openFileDialog;
 
     if (!openFileDialog) {
       dispatch(
         addNotification({
-          type: 'error',
-          message: t(
-            'Fatal error occurred: unable to open import file dialog.',
-          ),
+          notification: {
+            type: 'error',
+            message: t(
+              'Fatal error occurred: unable to open import file dialog.',
+            ),
+          },
         }),
       );
       return;
@@ -244,14 +285,16 @@ export function Overview() {
     const res = await send('dashboard-import', { filepath });
     setIsImporting(false);
 
-    if (res.error) {
+    if ('error' in res) {
       switch (res.error) {
         case 'json-parse-error':
           dispatch(
             addNotification({
-              id: 'import',
-              type: 'error',
-              message: t('Failed parsing the imported JSON.'),
+              notification: {
+                id: 'import',
+                type: 'error',
+                message: t('Failed parsing the imported JSON.'),
+              },
             }),
           );
           break;
@@ -259,9 +302,11 @@ export function Overview() {
         case 'validation-error':
           dispatch(
             addNotification({
-              id: 'import',
-              type: 'error',
-              message: res.message,
+              notification: {
+                id: 'import',
+                type: 'error',
+                message: res.message,
+              },
             }),
           );
           break;
@@ -269,9 +314,11 @@ export function Overview() {
         default:
           dispatch(
             addNotification({
-              id: 'import',
-              type: 'error',
-              message: t('Failed importing the dashboard file.'),
+              notification: {
+                id: 'import',
+                type: 'error',
+                message: t('Failed importing the dashboard file.'),
+              },
             }),
           );
           break;
@@ -323,90 +370,84 @@ export function Overview() {
             >
               {currentBreakpoint === 'desktop' && (
                 <>
-                  <Button
-                    ref={triggerRef}
-                    variant="primary"
-                    isDisabled={isImporting}
-                    onPress={() => setMenuOpen(true)}
-                  >
-                    <Trans>Add new widget</Trans>
-                  </Button>
+                  <DialogTrigger>
+                    <Button variant="primary" isDisabled={isImporting}>
+                      <Trans>Add new widget</Trans>
+                    </Button>
 
-                  <Popover
-                    triggerRef={triggerRef}
-                    isOpen={menuOpen}
-                    onOpenChange={() => setMenuOpen(false)}
-                  >
-                    <Menu
-                      onMenuSelect={item => {
-                        if (item === 'custom-report') {
-                          navigate('/reports/custom');
-                          return;
-                        }
+                    <Popover>
+                      <Dialog>
+                        <Menu
+                          slot="close"
+                          onMenuSelect={item => {
+                            if (item === 'custom-report') {
+                              navigate('/reports/custom');
+                              return;
+                            }
 
-                        function isExistingCustomReport(
-                          name: string,
-                        ): name is `custom-report-${string}` {
-                          return name.startsWith('custom-report-');
-                        }
-                        if (isExistingCustomReport(item)) {
-                          const [, reportId] = item.split('custom-report-');
-                          onAddWidget<CustomReportWidget>('custom-report', {
-                            id: reportId,
-                          });
-                          return;
-                        }
+                            function isExistingCustomReport(
+                              name: string,
+                            ): name is `custom-report-${string}` {
+                              return name.startsWith('custom-report-');
+                            }
+                            if (isExistingCustomReport(item)) {
+                              const [, reportId] = item.split('custom-report-');
+                              onAddWidget<CustomReportWidget>('custom-report', {
+                                id: reportId,
+                              });
+                              return;
+                            }
 
-                        if (item === 'markdown-card') {
-                          onAddWidget<MarkdownWidget>(item, {
-                            content: t(
-                              '### Text Widget\n\nEdit this widget to change the **markdown** content.',
-                            ),
-                          });
-                          return;
-                        }
+                            if (item === 'markdown-card') {
+                              onAddWidget<MarkdownWidget>(item, {
+                                content: `### ${t('Text Widget')}\n\n${t('Edit this widget to change the **markdown** content.')}`,
+                              });
+                              return;
+                            }
 
-                        onAddWidget(item);
-                      }}
-                      items={[
-                        {
-                          name: 'cash-flow-card' as const,
-                          text: t('Cash flow graph'),
-                        },
-                        {
-                          name: 'net-worth-card' as const,
-                          text: t('Net worth graph'),
-                        },
-                        {
-                          name: 'spending-card' as const,
-                          text: t('Spending analysis'),
-                        },
-                        {
-                          name: 'markdown-card' as const,
-                          text: t('Text widget'),
-                        },
-                        {
-                          name: 'summary-card' as const,
-                          text: t('Summary card'),
-                        },
-                        {
-                          name: 'calendar-card' as const,
-                          text: t('Calendar card'),
-                        },
-                        {
-                          name: 'custom-report' as const,
-                          text: t('New custom report'),
-                        },
-                        ...(customReports.length
-                          ? ([Menu.line] satisfies Array<typeof Menu.line>)
-                          : []),
-                        ...customReports.map(report => ({
-                          name: `custom-report-${report.id}` as const,
-                          text: report.name,
-                        })),
-                      ]}
-                    />
-                  </Popover>
+                            onAddWidget(item);
+                          }}
+                          items={[
+                            {
+                              name: 'cash-flow-card' as const,
+                              text: t('Cash flow graph'),
+                            },
+                            {
+                              name: 'net-worth-card' as const,
+                              text: t('Net worth graph'),
+                            },
+                            {
+                              name: 'spending-card' as const,
+                              text: t('Spending analysis'),
+                            },
+                            {
+                              name: 'markdown-card' as const,
+                              text: t('Text widget'),
+                            },
+                            {
+                              name: 'summary-card' as const,
+                              text: t('Summary card'),
+                            },
+                            {
+                              name: 'calendar-card' as const,
+                              text: t('Calendar card'),
+                            },
+                            {
+                              name: 'custom-report' as const,
+                              text: t('New custom report'),
+                            },
+                            ...(customReports.length
+                              ? ([Menu.line] satisfies Array<typeof Menu.line>)
+                              : []),
+                            ...customReports.map(report => ({
+                              name: `custom-report-${report.id}` as const,
+                              text: report.name,
+                            })),
+                          ]}
+                        />
+                      </Dialog>
+                    </Popover>
+                  </DialogTrigger>
 
                   {isEditing ? (
                     <Button
@@ -424,50 +465,53 @@ export function Overview() {
                     </Button>
                   )}
 
-                  <MenuButton
-                    ref={extraMenuTriggerRef}
-                    onPress={() => setExtraMenuOpen(true)}
-                  />
-                  <Popover
-                    triggerRef={extraMenuTriggerRef}
-                    isOpen={extraMenuOpen}
-                    onOpenChange={() => setExtraMenuOpen(false)}
-                  >
-                    <Menu
-                      onMenuSelect={item => {
-                        switch (item) {
-                          case 'reset':
-                            onResetDashboard();
-                            break;
-                          case 'export':
-                            onExport();
-                            break;
-                          case 'import':
-                            onImport();
-                            break;
-                        }
-                        setExtraMenuOpen(false);
-                      }}
-                      items={[
-                        {
-                          name: 'reset',
-                          text: t('Reset to default'),
-                          disabled: isImporting,
-                        },
-                        Menu.line,
-                        {
-                          name: 'import',
-                          text: t('Import'),
-                          disabled: isImporting,
-                        },
-                        {
-                          name: 'export',
-                          text: t('Export'),
-                          disabled: isImporting,
-                        },
-                      ]}
-                    />
-                  </Popover>
+                  <DialogTrigger>
+                    <Button variant="bare" aria-label={t('Menu')}>
+                      <SvgDotsHorizontalTriple
+                        width={15}
+                        height={15}
+                        style={{ transform: 'rotateZ(90deg)' }}
+                      />
+                    </Button>
+                    <Popover>
+                      <Dialog>
+                        <Menu
+                          slot="close"
+                          onMenuSelect={item => {
+                            switch (item) {
+                              case 'reset':
+                                onResetDashboard();
+                                break;
+                              case 'export':
+                                onExport();
+                                break;
+                              case 'import':
+                                onImport();
+                                break;
+                            }
+                          }}
+                          items={[
+                            {
+                              name: 'reset',
+                              text: t('Reset to default'),
+                              disabled: isImporting,
+                            },
+                            Menu.line,
+                            {
+                              name: 'import',
+                              text: t('Import'),
+                              disabled: isImporting,
+                            },
+                            {
+                              name: 'export',
+                              text: t('Export'),
+                              disabled: isImporting,
+                            },
+                          ]}
+                        />
+                      </Dialog>
+                    </Popover>
+                  </DialogTrigger>
                 </>
               )}
             </View>
@@ -475,87 +519,91 @@ export function Overview() {
         )
       }
       padding={10}
-      style={{ paddingBottom: MOBILE_NAV_HEIGHT }}
     >
       {isImporting ? (
         <LoadingIndicator message={t('Import is running...')} />
       ) : (
-        <View style={{ userSelect: 'none' }}>
-          <ResponsiveGridLayout
-            breakpoints={{ desktop: breakpoints.medium, mobile: 1 }}
-            layouts={{ desktop: layout, mobile: layout }}
-            onLayoutChange={
-              currentBreakpoint === 'desktop' ? onLayoutChange : undefined
-            }
-            onBreakpointChange={onBreakpointChange}
-            cols={{ desktop: 12, mobile: 1 }}
-            rowHeight={100}
-            draggableCancel={`.${NON_DRAGGABLE_AREA_CLASS_NAME}`}
-            isDraggable={currentBreakpoint === 'desktop' && isEditing}
-            isResizable={currentBreakpoint === 'desktop' && isEditing}
+        <div>
+          <View
+            data-testid="reports-overview"
+            style={{ userSelect: 'none', paddingBottom: MOBILE_NAV_HEIGHT }}
           >
-            {layout.map(item => (
-              <div key={item.i}>
-                {item.type === 'net-worth-card' ? (
-                  <NetWorthCard
-                    widgetId={item.i}
-                    isEditing={isEditing}
-                    accounts={accounts}
-                    meta={item.meta}
-                    onMetaChange={newMeta => onMetaChange(item, newMeta)}
-                    onRemove={() => onRemoveWidget(item.i)}
-                  />
-                ) : item.type === 'cash-flow-card' ? (
-                  <CashFlowCard
-                    widgetId={item.i}
-                    isEditing={isEditing}
-                    meta={item.meta}
-                    onMetaChange={newMeta => onMetaChange(item, newMeta)}
-                    onRemove={() => onRemoveWidget(item.i)}
-                  />
-                ) : item.type === 'spending-card' ? (
-                  <SpendingCard
-                    widgetId={item.i}
-                    isEditing={isEditing}
-                    meta={item.meta}
-                    onMetaChange={newMeta => onMetaChange(item, newMeta)}
-                    onRemove={() => onRemoveWidget(item.i)}
-                  />
-                ) : item.type === 'markdown-card' ? (
-                  <MarkdownCard
-                    isEditing={isEditing}
-                    meta={item.meta}
-                    onMetaChange={newMeta => onMetaChange(item, newMeta)}
-                    onRemove={() => onRemoveWidget(item.i)}
-                  />
-                ) : item.type === 'custom-report' ? (
-                  <CustomReportListCards
-                    isEditing={isEditing}
-                    report={customReportMap.get(item.meta.id)}
-                    onRemove={() => onRemoveWidget(item.i)}
-                  />
-                ) : item.type === 'summary-card' ? (
-                  <SummaryCard
-                    widgetId={item.i}
-                    isEditing={isEditing}
-                    meta={item.meta}
-                    onMetaChange={newMeta => onMetaChange(item, newMeta)}
-                    onRemove={() => onRemoveWidget(item.i)}
-                  />
-                ) : item.type === 'calendar-card' ? (
-                  <CalendarCard
-                    widgetId={item.i}
-                    isEditing={isEditing}
-                    meta={item.meta}
-                    firstDayOfWeekIdx={firstDayOfWeekIdx}
-                    onMetaChange={newMeta => onMetaChange(item, newMeta)}
-                    onRemove={() => onRemoveWidget(item.i)}
-                  />
-                ) : null}
-              </div>
-            ))}
-          </ResponsiveGridLayout>
-        </View>
+            <ResponsiveGridLayout
+              breakpoints={{ desktop: breakpoints.medium, mobile: 1 }}
+              layouts={{ desktop: desktopLayout, mobile: mobileLayout }}
+              onLayoutChange={
+                currentBreakpoint === 'desktop' ? onLayoutChange : undefined
+              }
+              onBreakpointChange={onBreakpointChange}
+              cols={{ desktop: 12, mobile: 1 }}
+              rowHeight={100}
+              draggableCancel={`.${NON_DRAGGABLE_AREA_CLASS_NAME}`}
+              isDraggable={currentBreakpoint === 'desktop' && isEditing}
+              isResizable={currentBreakpoint === 'desktop' && isEditing}
+            >
+              {desktopLayout.map(item => (
+                <div key={item.i}>
+                  {item.type === 'net-worth-card' ? (
+                    <NetWorthCard
+                      widgetId={item.i}
+                      isEditing={isEditing}
+                      accounts={accounts}
+                      meta={item.meta}
+                      onMetaChange={newMeta => onMetaChange(item, newMeta)}
+                      onRemove={() => onRemoveWidget(item.i)}
+                    />
+                  ) : item.type === 'cash-flow-card' ? (
+                    <CashFlowCard
+                      widgetId={item.i}
+                      isEditing={isEditing}
+                      meta={item.meta}
+                      onMetaChange={newMeta => onMetaChange(item, newMeta)}
+                      onRemove={() => onRemoveWidget(item.i)}
+                    />
+                  ) : item.type === 'spending-card' ? (
+                    <SpendingCard
+                      widgetId={item.i}
+                      isEditing={isEditing}
+                      meta={item.meta}
+                      onMetaChange={newMeta => onMetaChange(item, newMeta)}
+                      onRemove={() => onRemoveWidget(item.i)}
+                    />
+                  ) : item.type === 'markdown-card' ? (
+                    <MarkdownCard
+                      isEditing={isEditing}
+                      meta={item.meta}
+                      onMetaChange={newMeta => onMetaChange(item, newMeta)}
+                      onRemove={() => onRemoveWidget(item.i)}
+                    />
+                  ) : item.type === 'custom-report' ? (
+                    <CustomReportListCards
+                      isEditing={isEditing}
+                      report={customReportMap.get(item.meta.id)}
+                      onRemove={() => onRemoveWidget(item.i)}
+                    />
+                  ) : item.type === 'summary-card' ? (
+                    <SummaryCard
+                      widgetId={item.i}
+                      isEditing={isEditing}
+                      meta={item.meta}
+                      onMetaChange={newMeta => onMetaChange(item, newMeta)}
+                      onRemove={() => onRemoveWidget(item.i)}
+                    />
+                  ) : item.type === 'calendar-card' ? (
+                    <CalendarCard
+                      widgetId={item.i}
+                      isEditing={isEditing}
+                      meta={item.meta}
+                      firstDayOfWeekIdx={firstDayOfWeekIdx}
+                      onMetaChange={newMeta => onMetaChange(item, newMeta)}
+                      onRemove={() => onRemoveWidget(item.i)}
+                    />
+                  ) : null}
+                </div>
+              ))}
+            </ResponsiveGridLayout>
+          </View>
+        </div>
       )}
     </Page>
   );

@@ -1,20 +1,26 @@
-import React, { useState } from 'react';
+import React, { useEffect, type FormEvent, useState } from 'react';
+import { Form } from 'react-aria-components';
 import { Trans } from 'react-i18next';
 
-import * as queries from 'loot-core/src/client/queries';
-import { type Query } from 'loot-core/src/shared/query';
-import { currencyToInteger } from 'loot-core/src/shared/util';
-import { type AccountEntity } from 'loot-core/types/models';
+import { Button } from '@actual-app/components/button';
+import { SvgCheckCircle1 } from '@actual-app/components/icons/v2';
+import { InitialFocus } from '@actual-app/components/initial-focus';
+import { Input } from '@actual-app/components/input';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+import { t } from 'i18next';
 
-import { SvgCheckCircle1 } from '../../icons/v2';
-import { styles, theme } from '../../style';
-import { Button } from '../common/Button2';
-import { InitialFocus } from '../common/InitialFocus';
-import { Input } from '../common/Input';
-import { Text } from '../common/Text';
-import { View } from '../common/View';
-import { useFormat } from '../spreadsheet/useFormat';
-import { useSheetValue } from '../spreadsheet/useSheetValue';
+import { type Query } from 'loot-core/shared/query';
+import { currencyToInteger, tsToRelativeTime } from 'loot-core/shared/util';
+import { type AccountEntity } from 'loot-core/types/models';
+import { type TransObjectLiteral } from 'loot-core/types/util';
+
+import { useFormat } from '@desktop-client/hooks/useFormat';
+import { useLocale } from '@desktop-client/hooks/useLocale';
+import { useSheetValue } from '@desktop-client/hooks/useSheetValue';
+import * as bindings from '@desktop-client/spreadsheet/bindings';
 
 type ReconcilingMessageProps = {
   balanceQuery: { name: `balance-query-${string}`; query: Query };
@@ -82,23 +88,27 @@ export function ReconcilingMessage({
           <View style={{ color: theme.tableText }}>
             <Text style={{ fontStyle: 'italic', textAlign: 'center' }}>
               <Trans>
-                Your cleared balance <strong>{clearedBalance}</strong> needs{' '}
-                <strong>{difference}</strong> to match
+                Your cleared balance{' '}
+                <strong>{{ clearedBalance } as TransObjectLiteral}</strong>{' '}
+                needs <strong>{{ difference } as TransObjectLiteral}</strong> to
+                match
                 <br /> your bank&apos;s balance of{' '}
-                <Text style={{ fontWeight: 700 }}>{bankBalance}</Text>
+                <Text style={{ fontWeight: 700 }}>
+                  {{ bankBalance } as TransObjectLiteral}
+                </Text>
               </Trans>
             </Text>
           </View>
         )}
         <View style={{ marginLeft: 15 }}>
           <Button variant="primary" onPress={onDone}>
-            <Trans>Done Reconciling</Trans>
+            <Trans>Done reconciling</Trans>
           </Button>
         </View>
         {targetDiff !== 0 && (
           <View style={{ marginLeft: 15 }}>
             <Button onPress={() => onCreateTransaction(targetDiff)}>
-              <Trans>Create Reconciliation Transaction</Trans>
+              <Trans>Create reconciliation transaction</Trans>
             </Button>
           </View>
         )}
@@ -118,19 +128,29 @@ export function ReconcileMenu({
   onReconcile,
   onClose,
 }: ReconcileMenuProps) {
-  const balanceQuery = queries.accountBalance(account);
+  const balanceQuery = bindings.accountBalance(account.id);
   const clearedBalance = useSheetValue<'account', `balance-${string}-cleared`>({
     name: (balanceQuery.name + '-cleared') as `balance-${string}-cleared`,
     value: null,
     query: balanceQuery.query.filter({ cleared: true }),
   });
+  const lastSyncedBalance = account.balance_current;
   const format = useFormat();
-  const [inputValue, setInputValue] = useState<string | null>(null);
-  const [inputFocused, setInputFocused] = useState(false);
+  const locale = useLocale();
 
-  function onSubmit() {
+  const [inputValue, setInputValue] = useState<string | null>();
+  // useEffect is needed here. clearedBalance does not work as a default value for inputValue and
+  // to use a button to update inputValue we can't use defaultValue in the input form below
+  useEffect(() => {
+    if (clearedBalance != null) {
+      setInputValue(format(clearedBalance, 'financial'));
+    }
+  }, [clearedBalance, format]);
+
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
     if (inputValue === '') {
-      setInputFocused(true);
       return;
     }
 
@@ -142,27 +162,53 @@ export function ReconcileMenu({
   }
 
   return (
-    <View style={{ padding: '5px 8px' }}>
-      <Text>
-        <Trans>
-          Enter the current balance of your bank account that you want to
-          reconcile with:
-        </Trans>
-      </Text>
-      {clearedBalance != null && (
-        <InitialFocus>
-          <Input
-            defaultValue={format(clearedBalance, 'financial')}
-            onChangeValue={setInputValue}
-            style={{ margin: '7px 0' }}
-            focused={inputFocused}
-            onEnter={onSubmit}
-          />
-        </InitialFocus>
-      )}
-      <Button variant="primary" onPress={onSubmit}>
-        <Trans>Reconcile</Trans>
-      </Button>
-    </View>
+    <Form onSubmit={onSubmit}>
+      <View style={{ padding: '5px 8px' }}>
+        <Text>
+          <Trans>
+            Enter the current balance of your bank account that you want to
+            reconcile with:
+          </Trans>
+        </Text>
+        {inputValue != null && (
+          <InitialFocus>
+            <Input
+              value={inputValue}
+              onChangeValue={setInputValue}
+              style={{ margin: '7px 0' }}
+            />
+          </InitialFocus>
+        )}
+        {lastSyncedBalance != null && (
+          <View>
+            <Text>
+              <Trans>Last Balance from Bank: </Trans>
+              {format(lastSyncedBalance, 'financial')}
+            </Text>
+            <Button
+              onPress={() =>
+                setInputValue(format(lastSyncedBalance, 'financial'))
+              }
+              style={{ marginBottom: 7 }}
+            >
+              <Trans>Use last synced total</Trans>
+            </Button>
+          </View>
+        )}
+        <Text style={{ color: theme.pageTextSubdued, paddingBottom: 6 }}>
+          {account?.last_reconciled
+            ? t('Reconciled {{ relativeTimeAgo }}', {
+                relativeTimeAgo: tsToRelativeTime(
+                  account.last_reconciled,
+                  locale,
+                ),
+              })
+            : t('Not yet reconciled')}
+        </Text>
+        <Button type="submit" variant="primary">
+          <Trans>Reconcile</Trans>
+        </Button>
+      </View>
+    </Form>
   );
 }

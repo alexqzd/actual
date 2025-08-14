@@ -1,14 +1,15 @@
 import React, { type ReactElement } from 'react';
 import { Trans } from 'react-i18next';
 
+import { Block } from '@actual-app/components/block';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
 import * as d from 'date-fns';
 
-import * as monthUtils from 'loot-core/src/shared/months';
+import * as monthUtils from 'loot-core/shared/months';
 
-import { theme } from '../../style';
-import { styles } from '../../style/styles';
-import { Block } from '../common/Block';
-import { Text } from '../common/Text';
+import { useLocale } from '@desktop-client/hooks/useLocale';
 
 type DateRangeProps = {
   start: string;
@@ -26,6 +27,7 @@ function checkDate(date: string) {
 }
 
 export function DateRange({ start, end, type }: DateRangeProps): ReactElement {
+  const locale = useLocale();
   const checkStart = checkDate(start);
   const checkEnd = checkDate(end);
 
@@ -42,8 +44,8 @@ export function DateRange({ start, end, type }: DateRangeProps): ReactElement {
     );
   }
 
-  const formattedStartDate = d.format(startDate, 'MMM yyyy');
-  const formattedEndDate = d.format(endDate, 'MMM yyyy');
+  const formattedStartDate = d.format(startDate, 'MMM yyyy', { locale });
+  const formattedEndDate = d.format(endDate, 'MMM yyyy', { locale });
   let typeOrFormattedEndDate: string;
 
   if (type && ['budget', 'average'].includes(type)) {
@@ -72,14 +74,14 @@ export function DateRange({ start, end, type }: DateRangeProps): ReactElement {
             Compare {{ formattedStartDate }} to {{ typeOrFormattedEndDate }}
           </Trans>
         ) : (
-          <Trans>
-            {{ formattedStartDate }} - {{ formattedEndDate }}
-          </Trans>
+          <>
+            {formattedStartDate} - {formattedEndDate}
+          </>
         )}
       </div>
     );
   } else {
-    content = d.format(endDate, 'MMMM yyyy');
+    content = d.format(endDate, 'MMMM yyyy', { locale });
   }
 
   return <Block style={{ color: theme.pageTextSubdued }}>{content}</Block>;

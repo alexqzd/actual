@@ -12,32 +12,36 @@ import React, {
 } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { useResponsive } from '@actual-app/components/hooks/useResponsive';
+import { SvgSplit } from '@actual-app/components/icons/v0';
+import { styles } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { TextOneLine } from '@actual-app/components/text-one-line';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 import { css, cx } from '@emotion/css';
 
-import { trackingBudget, envelopeBudget } from 'loot-core/client/queries';
+import { getNormalisedString } from 'loot-core/shared/normalisation';
 import { integerToCurrency } from 'loot-core/shared/util';
-import { getNormalisedString } from 'loot-core/src/shared/normalisation';
 import {
   type CategoryEntity,
   type CategoryGroupEntity,
-} from 'loot-core/src/types/models';
-
-import { useCategories } from '../../hooks/useCategories';
-import { useSyncedPref } from '../../hooks/useSyncedPref';
-import { SvgSplit } from '../../icons/v0';
-import { theme, styles } from '../../style';
-import { useEnvelopeSheetValue } from '../budget/envelope/EnvelopeBudgetComponents';
-import { makeAmountFullStyle } from '../budget/util';
-import { Text } from '../common/Text';
-import { TextOneLine } from '../common/TextOneLine';
-import { View } from '../common/View';
-import { useResponsive } from '../responsive/ResponsiveProvider';
-import { useSheetValue } from '../spreadsheet/useSheetValue';
+} from 'loot-core/types/models';
 
 import { Autocomplete, defaultFilterSuggestion } from './Autocomplete';
 import { ItemHeader } from './ItemHeader';
 
-type CategoryAutocompleteItem = CategoryEntity & {
+import { useEnvelopeSheetValue } from '@desktop-client/components/budget/envelope/EnvelopeBudgetComponents';
+import { makeAmountFullStyle } from '@desktop-client/components/budget/util';
+import { useCategories } from '@desktop-client/hooks/useCategories';
+import { useSheetValue } from '@desktop-client/hooks/useSheetValue';
+import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
+import {
+  trackingBudget,
+  envelopeBudget,
+} from '@desktop-client/spreadsheet/bindings';
+
+type CategoryAutocompleteItem = Omit<CategoryEntity, 'group'> & {
   group?: CategoryGroupEntity;
 };
 
@@ -104,9 +108,10 @@ function CategoryList({
             });
           }
 
-          const showGroup = item.cat_group !== lastGroup;
+          const groupId = item.group?.id;
+          const showGroup = groupId !== lastGroup;
           const groupName = `${item.group?.name}${item.group?.hidden ? ' ' + t('(hidden)') : ''}`;
-          lastGroup = item.cat_group;
+          lastGroup = groupId;
           return (
             <Fragment key={item.id}>
               {showGroup && item.group?.name && (
@@ -194,13 +199,15 @@ export function CategoryAutocomplete({
         (list, group) =>
           list.concat(
             (group.categories || [])
-              .filter(category => category.cat_group === group.id)
+              .filter(category => category.group === group.id)
               .map(category => ({
                 ...category,
                 group,
               })),
           ),
-        showSplitOption ? [{ id: 'split', name: '' } as CategoryEntity] : [],
+        showSplitOption
+          ? [{ id: 'split', name: '' } as CategoryAutocompleteItem]
+          : [],
       ),
     [defaultCategoryGroups, categoryGroups, showSplitOption],
   );
@@ -381,10 +388,10 @@ function CategoryItem({
         borderTop: `1px solid ${theme.pillBorder}`,
       }
     : {};
-  const [budgetType = 'rollover'] = useSyncedPref('budgetType');
+  const [budgetType = 'envelope'] = useSyncedPref('budgetType');
 
   const balanceBinding =
-    budgetType === 'rollover'
+    budgetType === 'envelope'
       ? envelopeBudget.catBalance(item.id)
       : trackingBudget.catBalance(item.id);
   const balance = useSheetValue<
@@ -392,7 +399,7 @@ function CategoryItem({
     typeof balanceBinding
   >(balanceBinding);
 
-  const isToBeBudgetedItem = item.id === 'to-be-budgeted';
+  const isToBudgetItem = item.id === 'to-budget';
   const toBudget = useEnvelopeSheetValue(envelopeBudget.toBudget);
 
   return (
@@ -429,16 +436,13 @@ function CategoryItem({
             display: !showBalances ? 'none' : undefined,
             marginLeft: 5,
             flexShrink: 0,
-            ...makeAmountFullStyle(
-              (isToBeBudgetedItem ? toBudget : balance) || 0,
-              {
-                positiveColor: theme.noticeTextMenu,
-                negativeColor: theme.errorTextMenu,
-              },
-            ),
+            ...makeAmountFullStyle((isToBudgetItem ? toBudget : balance) || 0, {
+              positiveColor: theme.noticeTextMenu,
+              negativeColor: theme.errorTextMenu,
+            }),
           }}
         >
-          {isToBeBudgetedItem
+          {isToBudgetItem
             ? toBudget != null
               ? ` ${integerToCurrency(toBudget || 0)}`
               : null

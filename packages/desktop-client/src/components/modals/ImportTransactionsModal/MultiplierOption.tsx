@@ -1,7 +1,8 @@
 import React, { type ComponentProps } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
-import { Input } from '../../common/Input';
-import { View } from '../../common/View';
+import { Input } from '@actual-app/components/input';
+import { View } from '@actual-app/components/view';
 
 import { CheckboxOption } from './CheckboxOption';
 
@@ -18,6 +19,7 @@ export function MultiplierOption({
   onToggle,
   onChangeAmount,
 }: MultiplierOptionProps) {
+  const { t } = useTranslation();
   return (
     <View style={{ flexDirection: 'row', gap: 10, height: 28 }}>
       <CheckboxOption
@@ -25,13 +27,13 @@ export function MultiplierOption({
         checked={multiplierEnabled}
         onChange={onToggle}
       >
-        Add multiplier
+        <Trans>Multiply amount</Trans>
       </CheckboxOption>
       <Input
         type="text"
         style={{ display: multiplierEnabled ? 'inherit' : 'none' }}
         value={multiplierAmount}
-        placeholder="Multiplier"
+        placeholder={t('Multiplier')}
         onChangeValue={onChangeAmount}
       />
     </View>

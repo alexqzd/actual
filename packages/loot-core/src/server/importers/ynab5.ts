@@ -8,9 +8,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 import * as monthUtils from '../../shared/months';
 import { sortByKey, groupBy } from '../../shared/util';
-import { CategoryGroupEntity } from '../../types/models';
 
-import { YNAB5 } from './ynab5-types';
+import * as YNAB5 from './ynab5-types';
 
 function amountFromYnab(amount: number) {
   // ynabs multiplies amount by 1000 and actual by 100
@@ -79,13 +78,31 @@ async function importCategories(
       if (
         !equalsIgnoreCase(group.name, 'Internal Master Category') &&
         !equalsIgnoreCase(group.name, 'Credit Card Payments') &&
+        !equalsIgnoreCase(group.name, 'Hidden Categories') &&
         !equalsIgnoreCase(group.name, 'Income')
       ) {
-        groupId = await actual.createCategoryGroup({
-          name: group.name,
-          is_income: false,
-        });
-        entityIdMap.set(group.id, groupId);
+        let run = true;
+        const MAX_RETRY = 10;
+        let count = 1;
+        const origName = group.name;
+        while (run) {
+          try {
+            groupId = await actual.createCategoryGroup({
+              name: group.name,
+              is_income: false,
+              hidden: group.hidden,
+            });
+            entityIdMap.set(group.id, groupId);
+            run = false;
+          } catch (e) {
+            group.name = origName + '-' + count.toString();
+            count += 1;
+            if (count >= MAX_RETRY) {
+              run = false;
+              throw Error(e.message);
+            }
+          }
+        }
       }
 
       if (equalsIgnoreCase(group.name, 'Income')) {
@@ -112,12 +129,28 @@ async function importCategories(
             case 'internal': // uncategorized is ignored too, handled by actual
               break;
             default: {
-              const id = await actual.createCategory({
-                name: cat.name,
-                group_id: groupId,
-              });
-              entityIdMap.set(cat.id, id);
-              break;
+              let run = true;
+              const MAX_RETRY = 10;
+              let count = 1;
+              const origName = cat.name;
+              while (run) {
+                try {
+                  const id = await actual.createCategory({
+                    name: cat.name,
+                    group_id: groupId,
+                    hidden: cat.hidden,
+                  });
+                  entityIdMap.set(cat.id, id);
+                  run = false;
+                } catch (e) {
+                  cat.name = origName + '-' + count.toString();
+                  count += 1;
+                  if (count >= MAX_RETRY) {
+                    run = false;
+                    throw Error(e.message);
+                  }
+                }
+              }
             }
           }
         }
@@ -501,16 +534,16 @@ function equalsIgnoreCase(stringa: string, stringb: string): boolean {
   );
 }
 
-function findByNameIgnoreCase(
-  categories: (YNAB5.CategoryGroup | CategoryGroupEntity)[],
+function findByNameIgnoreCase<T extends { name: string }>(
+  categories: T[],
   name: string,
 ) {
   return categories.find(cat => equalsIgnoreCase(cat.name, name));
 }
 
-function findIdByName(
-  categories: (YNAB5.CategoryGroup | CategoryGroupEntity)[],
+function findIdByName<T extends { id: string; name: string }>(
+  categories: Array<T>,
   name: string,
 ) {
-  return findByNameIgnoreCase(categories, name)?.id;
+  return findByNameIgnoreCase<T>(categories, name)?.id;
 }

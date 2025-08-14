@@ -1,13 +1,15 @@
-import React, { useState, type ReactNode, type CSSProperties } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import React, { useState, type ReactNode } from 'react';
+import { Trans } from 'react-i18next';
+import { useLocation } from 'react-router';
 
+import { type CSSProperties } from '@actual-app/components/styles';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { tokens } from '@actual-app/components/tokens';
+import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 
-import { theme } from '../../style';
-import { tokens } from '../../tokens';
-import { Link } from '../common/Link';
-import { View } from '../common/View';
+import { Link } from '@desktop-client/components/common/Link';
 
 type SettingProps = {
   primaryAction?: ReactNode;
@@ -50,7 +52,6 @@ type AdvancedToggleProps = {
 };
 
 export const AdvancedToggle = ({ children }: AdvancedToggleProps) => {
-  const { t } = useTranslation();
   const location = useLocation();
   const [expanded, setExpanded] = useState(location.hash === '#advanced');
 
@@ -75,7 +76,7 @@ export const AdvancedToggle = ({ children }: AdvancedToggleProps) => {
       }}
     >
       <View style={{ fontSize: 20, fontWeight: 500, flexShrink: 0 }}>
-        {t('Advanced Settings')}
+        <Trans>Advanced Settings</Trans>
       </View>
       {children}
     </View>
@@ -91,7 +92,32 @@ export const AdvancedToggle = ({ children }: AdvancedToggleProps) => {
         marginBottom: 25,
       }}
     >
-      {t('Show advanced settings')}
+      <Trans>Show advanced settings</Trans>
     </Link>
   );
 };
+
+export function Column({
+  title,
+  children,
+  style,
+}: {
+  title: string;
+  children: ReactNode;
+  style?: CSSProperties;
+}) {
+  return (
+    <View
+      style={{
+        alignItems: 'flex-start',
+        flexGrow: 1,
+        gap: '0.5em',
+        width: '100%',
+        ...style,
+      }}
+    >
+      <Text style={{ fontWeight: 500 }}>{title}</Text>
+      <View style={{ alignItems: 'flex-start', gap: '1em' }}>{children}</View>
+    </View>
+  );
+}

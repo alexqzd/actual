@@ -1,12 +1,13 @@
 import * as d from 'date-fns';
 
-import { runQuery } from 'loot-core/src/client/query-helpers';
-import { type useSpreadsheet } from 'loot-core/src/client/SpreadsheetProvider';
-import { send } from 'loot-core/src/platform/client/fetch';
-import * as monthUtils from 'loot-core/src/shared/months';
-import { q } from 'loot-core/src/shared/query';
+import { send } from 'loot-core/platform/client/fetch';
+import * as monthUtils from 'loot-core/shared/months';
+import { q } from 'loot-core/shared/query';
 import { type RuleConditionEntity } from 'loot-core/types/models';
 import { type SyncedPrefs } from 'loot-core/types/prefs';
+
+import { type useSpreadsheet } from '@desktop-client/hooks/useSpreadsheet';
+import { aqlQuery } from '@desktop-client/queries/aqlQuery';
 
 export type CalendarDataType = {
   date: Date;
@@ -34,7 +35,7 @@ export function calendarSpreadsheet(
       }[];
     }) => void,
   ) => {
-    let filters;
+    let filters: unknown[];
 
     try {
       const { filters: filtersLocal } = await send(
@@ -90,7 +91,7 @@ export function calendarSpreadsheet(
 
     let expenseData;
     try {
-      expenseData = await runQuery(
+      expenseData = await aqlQuery(
         makeRootQuery().filter({
           $and: { amount: { $lt: 0 } },
         }),
@@ -102,7 +103,7 @@ export function calendarSpreadsheet(
 
     let incomeData;
     try {
-      incomeData = await runQuery(
+      incomeData = await aqlQuery(
         makeRootQuery().filter({
           $and: { amount: { $gt: 0 } },
         }),

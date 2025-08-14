@@ -1,11 +1,11 @@
 import React, { type ComponentPropsWithoutRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { trackingBudget } from 'loot-core/src/client/queries';
-
-import { Menu } from '../../common/Menu';
+import { Menu } from '@actual-app/components/menu';
 
 import { useTrackingSheetValue } from './TrackingBudgetComponents';
+
+import { trackingBudget } from '@desktop-client/spreadsheet/bindings';
 
 type BalanceMenuProps = Omit<
   ComponentPropsWithoutRef<typeof Menu>,
