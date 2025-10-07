@@ -13,7 +13,6 @@ import * as d from 'date-fns';
 
 import { send } from 'loot-core/platform/client/fetch';
 import * as monthUtils from 'loot-core/shared/months';
-import { amountToCurrency } from 'loot-core/shared/util';
 import {
   type CategoryEntity,
   type balanceTypeOpType,
@@ -62,6 +61,7 @@ import {
 } from '@desktop-client/components/reports/util';
 import { useAccounts } from '@desktop-client/hooks/useAccounts';
 import { useCategories } from '@desktop-client/hooks/useCategories';
+import { useFormat } from '@desktop-client/hooks/useFormat';
 import { useLocale } from '@desktop-client/hooks/useLocale';
 import { useLocalPref } from '@desktop-client/hooks/useLocalPref';
 import { useNavigate } from '@desktop-client/hooks/useNavigate';
@@ -131,6 +131,8 @@ type CustomReportInnerProps = {
 function CustomReportInner({ report: initialReport }: CustomReportInnerProps) {
   const locale = useLocale();
   const { t } = useTranslation();
+  const format = useFormat();
+
   const categories = useCategories();
   const { isNarrowWidth } = useResponsive();
   const [_firstDayOfWeekIdx] = useSyncedPref('firstDayOfWeekIdx');
@@ -268,6 +270,7 @@ function CustomReportInner({ report: initialReport }: CustomReportInnerProps) {
     monthUtils.rangeInclusive(startDate, endDate),
   );
   const [earliestTransaction, setEarliestTransaction] = useState('');
+  const [latestTransaction, setLatestTransaction] = useState('');
   const [report, setReport] = useState(loadReport);
   const [savedStatus, setSavedStatus] = useState(
     session.savedStatus ?? (initialReport ? 'saved' : 'new'),
@@ -294,25 +297,16 @@ function CustomReportInner({ report: initialReport }: CustomReportInnerProps) {
           : monthUtils.currentDay(),
       );
 
+      const latestTransaction = await send('get-latest-transaction');
+      setLatestTransaction(
+        latestTransaction ? latestTransaction.date : monthUtils.currentDay(),
+      );
+
       const fromDate =
         interval === 'Weekly'
           ? 'dayFromDate'
           : (((ReportOptions.intervalMap.get(interval) || 'Day').toLowerCase() +
               'FromDate') as 'dayFromDate' | 'monthFromDate' | 'yearFromDate');
-
-      const currentDate =
-        interval === 'Weekly'
-          ? 'currentDay'
-          : (('current' +
-              (ReportOptions.intervalMap.get(interval) || 'Day')) as
-              | 'currentDay'
-              | 'currentMonth'
-              | 'currentYear');
-
-      const currentInterval =
-        interval === 'Weekly'
-          ? monthUtils.currentWeek(firstDayOfWeekIdx)
-          : monthUtils[currentDate]();
 
       const earliestInterval =
         interval === 'Weekly'
@@ -332,16 +326,30 @@ function CustomReportInner({ report: initialReport }: CustomReportInnerProps) {
               ),
             );
 
+      const latestInterval =
+        interval === 'Weekly'
+          ? monthUtils.weekFromDate(
+              d.parseISO(
+                fromDateRepr(latestTransaction.date || monthUtils.currentDay()),
+              ),
+              firstDayOfWeekIdx,
+            )
+          : monthUtils[fromDate](
+              d.parseISO(
+                fromDateRepr(latestTransaction.date || monthUtils.currentDay()),
+              ),
+            );
+
       const allIntervals =
         interval === 'Weekly'
           ? monthUtils.weekRangeInclusive(
               earliestInterval,
-              currentInterval,
+              latestInterval,
               firstDayOfWeekIdx,
             )
           : monthUtils[
               ReportOptions.intervalRange.get(interval) || 'rangeInclusive'
-            ](earliestInterval, currentInterval);
+            ](earliestInterval, latestInterval);
 
       const allIntervalsMap = allIntervals
         .map((inter: string) => ({
@@ -362,6 +370,7 @@ function CustomReportInner({ report: initialReport }: CustomReportInnerProps) {
           earliestTransaction
             ? earliestTransaction.date
             : monthUtils.currentDay(),
+          latestTransaction ? latestTransaction.date : monthUtils.currentDay(),
           includeCurrentInterval,
           firstDayOfWeekIdx,
         );
@@ -802,6 +811,7 @@ function CustomReportInner({ report: initialReport }: CustomReportInnerProps) {
             defaultItems={defaultItems}
             defaultModeItems={defaultModeItems}
             earliestTransaction={earliestTransaction}
+            latestTransaction={latestTransaction}
             firstDayOfWeekIdx={firstDayOfWeekIdx}
             isComplexCategoryCondition={isComplexCategoryCondition}
           />
@@ -913,7 +923,7 @@ function CustomReportInner({ report: initialReport }: CustomReportInnerProps) {
                       right={
                         <Text>
                           <PrivacyFilter>
-                            {amountToCurrency(data[balanceTypeOp])}
+                            {format(data[balanceTypeOp], 'financial')}
                           </PrivacyFilter>
                         </Text>
                       }

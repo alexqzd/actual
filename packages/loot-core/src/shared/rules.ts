@@ -3,7 +3,12 @@ import { t } from 'i18next';
 
 import { FieldValueTypes, RuleConditionOp } from '../types/models';
 
-import { integerToAmount, amountToInteger, currencyToAmount } from './util';
+import {
+  integerToAmount,
+  amountToInteger,
+  currencyToAmount,
+  getNumberFormat,
+} from './util';
 
 // For now, this info is duplicated from the backend. Figure out how
 // to share it later.
@@ -115,11 +120,13 @@ export function getValidOps(field: keyof FieldValueTypes) {
   );
 }
 
-export const ALLOCATION_METHODS = {
-  'fixed-amount': 'a fixed amount',
-  'fixed-percent': 'a fixed percent of the remainder',
-  remainder: 'an equal portion of the remainder',
-};
+export function getAllocationMethods() {
+  return {
+    'fixed-amount': t('a fixed amount'),
+    'fixed-percent': t('a fixed percent of the remainder'),
+    remainder: t('an equal portion of the remainder'),
+  };
+}
 
 export function mapField(field, opts?) {
   opts = opts || {};
@@ -232,6 +239,17 @@ export function friendlyOp(op, type?) {
   }
 }
 
+export function translateRuleStage(stage: string): string {
+  switch (stage) {
+    case 'pre':
+      return t('Pre');
+    case 'post':
+      return t('Post');
+    default:
+      return '';
+  }
+}
+
 export function deserializeField(field) {
   if (field === 'amount-inflow') {
     return { field: 'amount', options: { inflow: true } };
@@ -327,7 +345,18 @@ export function unparse({ error, inputKey, ...item }) {
     case 'number': {
       let unparsed = item.value;
       if (item.field === 'amount' && item.op !== 'isbetween') {
-        unparsed = amountToInteger(unparsed);
+        // Handle both string (formatted) and number inputs
+        if (typeof unparsed === 'string') {
+          // Convert formatted string back to number first
+          unparsed = currencyToAmount(unparsed);
+          if (unparsed !== null && !isNaN(unparsed)) {
+            unparsed = amountToInteger(unparsed);
+          } else {
+            unparsed = null;
+          }
+        } else {
+          unparsed = amountToInteger(unparsed);
+        }
       }
 
       return { ...item, value: unparsed };
@@ -350,10 +379,22 @@ export function makeValue(value, cond) {
   switch (cond.type) {
     case 'number': {
       if (cond.op !== 'isbetween') {
+        const stringValue = String(value);
+        const { decimalSeparator } = getNumberFormat();
+
+        // preserve trailing decimal separator to allow decimal input during typing
+        if (stringValue && stringValue.endsWith(decimalSeparator)) {
+          return {
+            ...cond,
+            error: null,
+            value: stringValue,
+          };
+        }
+
         return {
           ...cond,
           error: null,
-          value: value ? currencyToAmount(String(value)) || 0 : 0,
+          value: value ? currencyToAmount(stringValue) || 0 : 0,
         };
       }
       break;

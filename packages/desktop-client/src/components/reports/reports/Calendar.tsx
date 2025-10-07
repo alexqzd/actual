@@ -23,13 +23,12 @@ import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 import { useDrag } from '@use-gesture/react';
-import { format, parseISO } from 'date-fns';
+import { format as formatDate, parseISO } from 'date-fns';
 
 import { send } from 'loot-core/platform/client/fetch';
 import * as monthUtils from 'loot-core/shared/months';
 import { q, type Query } from 'loot-core/shared/query';
 import { ungroupTransactions } from 'loot-core/shared/transactions';
-import { amountToCurrency } from 'loot-core/shared/util';
 import {
   type CalendarWidget,
   type RuleConditionEntity,
@@ -64,6 +63,7 @@ import { useAccounts } from '@desktop-client/hooks/useAccounts';
 import { SchedulesProvider } from '@desktop-client/hooks/useCachedSchedules';
 import { useCategories } from '@desktop-client/hooks/useCategories';
 import { useDateFormat } from '@desktop-client/hooks/useDateFormat';
+import { type FormatType, useFormat } from '@desktop-client/hooks/useFormat';
 import { useLocale } from '@desktop-client/hooks/useLocale';
 import { useMergedRefs } from '@desktop-client/hooks/useMergedRefs';
 import { useNavigate } from '@desktop-client/hooks/useNavigate';
@@ -104,19 +104,16 @@ type CalendarInnerProps = {
 function CalendarInner({ widget, parameters }: CalendarInnerProps) {
   const locale = useLocale();
   const { t } = useTranslation();
-  const [initialStart, initialEnd, initialMode] = calculateTimeRange(
-    widget?.meta?.timeFrame,
-    {
-      start: monthUtils.dayFromDate(monthUtils.currentMonth()),
-      end: monthUtils.currentDay(),
-      mode: 'full',
-    },
+  const format = useFormat();
+
+  const [start, setStart] = useState(
+    monthUtils.dayFromDate(monthUtils.currentMonth()),
   );
-  const [start, setStart] = useState(initialStart);
-  const [end, setEnd] = useState(initialEnd);
-  const [mode, setMode] = useState(initialMode);
+  const [end, setEnd] = useState(monthUtils.currentDay());
+  const [mode, setMode] = useState<TimeFrame['mode']>('full');
   const [query, setQuery] = useState<Query | undefined>(undefined);
   const [dirty, setDirty] = useState(false);
+  const [latestTransaction, setLatestTransaction] = useState('');
 
   const { transactions: transactionsGrouped, loadMore: loadMoreTransactions } =
     useTransactions({ query });
@@ -258,36 +255,67 @@ function CalendarInner({ widget, parameters }: CalendarInnerProps) {
 
   useEffect(() => {
     async function run() {
-      try {
-        const trans = await send('get-earliest-transaction');
-        const currentMonth = monthUtils.currentMonth();
-        let earliestMonth = trans
-          ? monthUtils.monthFromDate(parseISO(fromDateRepr(trans.date)))
-          : currentMonth;
+      const earliestTransaction = await send('get-earliest-transaction');
+      setEarliestTransaction(
+        earliestTransaction
+          ? earliestTransaction.date
+          : monthUtils.currentDay(),
+      );
 
-        // Make sure the month selects are at least populates with a
-        // year's worth of months. We can undo this when we have fancier
-        // date selects.
-        const yearAgo = monthUtils.subMonths(monthUtils.currentMonth(), 12);
-        if (earliestMonth > yearAgo) {
-          earliestMonth = yearAgo;
-        }
+      const latestTransaction = await send('get-latest-transaction');
+      setLatestTransaction(
+        latestTransaction ? latestTransaction.date : monthUtils.currentDay(),
+      );
 
-        const allMonths = monthUtils
-          .rangeInclusive(earliestMonth, monthUtils.currentMonth())
-          .map(month => ({
-            name: month,
-            pretty: monthUtils.format(month, 'MMMM, yyyy', locale),
-          }))
-          .reverse();
+      const currentMonth = monthUtils.currentMonth();
+      let earliestMonth = earliestTransaction
+        ? monthUtils.monthFromDate(
+            parseISO(fromDateRepr(earliestTransaction.date)),
+          )
+        : currentMonth;
+      const latestMonth = latestTransaction
+        ? monthUtils.monthFromDate(
+            parseISO(fromDateRepr(latestTransaction.date)),
+          )
+        : currentMonth;
 
-        setAllMonths(allMonths);
-      } catch (error) {
-        console.error('Error fetching earliest transaction:', error);
+      // Make sure the month selects are at least populates with a
+      // year's worth of months. We can undo this when we have fancier
+      // date selects.
+      const yearAgo = monthUtils.subMonths(latestMonth, 12);
+      if (earliestMonth > yearAgo) {
+        earliestMonth = yearAgo;
       }
+
+      const allMonths = monthUtils
+        .rangeInclusive(earliestMonth, latestMonth)
+        .map(month => ({
+          name: month,
+          pretty: monthUtils.format(month, 'MMMM, yyyy', locale),
+        }))
+        .reverse();
+
+      setAllMonths(allMonths);
     }
     run();
   }, [locale]);
+
+  useEffect(() => {
+    if (latestTransaction) {
+      const [initialStart, initialEnd, initialMode] = calculateTimeRange(
+        widget?.meta?.timeFrame,
+        {
+          start: monthUtils.dayFromDate(monthUtils.currentMonth()),
+          end: monthUtils.currentDay(),
+          mode: 'full',
+        },
+        latestTransaction,
+      );
+      setStart(initialStart);
+      setEnd(initialEnd);
+      setMode(initialMode);
+    }
+  }, [latestTransaction, widget?.meta?.timeFrame]);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -475,7 +503,7 @@ function CalendarInner({ widget, parameters }: CalendarInnerProps) {
     },
   );
 
-  const [earliestTransaction, _] = useState('');
+  const [earliestTransaction, setEarliestTransaction] = useState('');
 
   return (
     <Page
@@ -510,6 +538,7 @@ function CalendarInner({ widget, parameters }: CalendarInnerProps) {
           start={start}
           end={end}
           earliestTransaction={earliestTransaction}
+          latestTransaction={latestTransaction}
           firstDayOfWeekIdx={firstDayOfWeekIdx}
           mode={mode}
           onChangeDates={onChangeDates}
@@ -569,6 +598,7 @@ function CalendarInner({ widget, parameters }: CalendarInnerProps) {
                     firstDayOfWeekIdx={firstDayOfWeekIdx}
                     conditions={conditions}
                     conditionsOp={conditionsOp}
+                    format={format}
                   />
                 ))}
               </View>
@@ -579,6 +609,7 @@ function CalendarInner({ widget, parameters }: CalendarInnerProps) {
               totalExpense={totalExpense}
               totalIncome={totalIncome}
               isNarrowWidth={isNarrowWidth}
+              format={format}
             />
           </View>
         </View>
@@ -708,7 +739,6 @@ function CalendarInner({ widget, parameters }: CalendarInnerProps) {
                       transactions={allTransactions}
                       onOpenTransaction={onOpenTransaction}
                       isLoadingMore={false}
-                      account={undefined}
                     />
                   </View>
                 </animated.div>
@@ -742,6 +772,7 @@ type CalendarWithHeaderProps = {
   firstDayOfWeekIdx: string;
   conditions: RuleConditionEntity[];
   conditionsOp: 'and' | 'or';
+  format: (value: unknown, type: FormatType) => string;
 };
 
 function CalendarWithHeader({
@@ -750,6 +781,7 @@ function CalendarWithHeader({
   firstDayOfWeekIdx,
   conditions,
   conditionsOp,
+  format,
 }: CalendarWithHeaderProps) {
   const { t } = useTranslation();
 
@@ -796,7 +828,7 @@ function CalendarWithHeader({
                 {
                   field: 'date',
                   op: 'is',
-                  value: format(calendar.start, 'yyyy-MM'),
+                  value: formatDate(calendar.start, 'yyyy-MM'),
                   options: {
                     month: true,
                   },
@@ -807,7 +839,7 @@ function CalendarWithHeader({
             });
           }}
         >
-          {format(calendar.start, 'MMMM yyyy')}
+          {formatDate(calendar.start, 'MMMM yyyy')}
         </Button>
         <View
           style={{ display: 'grid', gridTemplateColumns: '16px 1fr', gap: 2 }}
@@ -827,7 +859,7 @@ function CalendarWithHeader({
             aria-label={t('Income')}
           >
             <PrivacyFilter>
-              {amountToCurrency(calendar.totalIncome)}
+              {format(calendar.totalIncome, 'financial')}
             </PrivacyFilter>
           </View>
           <SvgArrowThickDown
@@ -845,7 +877,7 @@ function CalendarWithHeader({
             aria-label={t('Expenses')}
           >
             <PrivacyFilter>
-              {amountToCurrency(calendar.totalExpense)}
+              {format(calendar.totalExpense, 'financial')}
             </PrivacyFilter>
           </View>
         </View>
@@ -862,7 +894,7 @@ function CalendarWithHeader({
                   {
                     field: 'date',
                     op: 'is',
-                    value: format(date, 'yyyy-MM-dd'),
+                    value: formatDate(date, 'yyyy-MM-dd'),
                   },
                 ],
                 conditionsOp: 'and',
@@ -889,6 +921,7 @@ type CalendarCardHeaderProps = {
   totalIncome: number;
   totalExpense: number;
   isNarrowWidth: boolean;
+  format: (value: unknown, type: FormatType) => string;
 };
 
 function CalendarCardHeader({
@@ -897,6 +930,7 @@ function CalendarCardHeader({
   totalIncome,
   totalExpense,
   isNarrowWidth,
+  format,
 }: CalendarCardHeaderProps) {
   return (
     <View
@@ -936,7 +970,7 @@ function CalendarCardHeader({
               <Trans>Income:</Trans>
             </View>
             <View style={{ color: chartTheme.colors.blue }}>
-              <PrivacyFilter>{amountToCurrency(totalIncome)}</PrivacyFilter>
+              <PrivacyFilter>{format(totalIncome, 'financial')}</PrivacyFilter>
             </View>
 
             <View
@@ -948,7 +982,7 @@ function CalendarCardHeader({
               <Trans>Expenses:</Trans>
             </View>
             <View style={{ color: chartTheme.colors.red }}>
-              <PrivacyFilter>{amountToCurrency(totalExpense)}</PrivacyFilter>
+              <PrivacyFilter>{format(totalExpense, 'financial')}</PrivacyFilter>
             </View>
           </View>
         </View>

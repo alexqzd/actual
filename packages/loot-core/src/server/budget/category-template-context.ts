@@ -133,7 +133,9 @@ export class CategoryTemplateContext {
     if (!this.priorities.has(priority)) return 0;
     if (this.limitMet) return 0;
 
-    const t = this.templates.filter(t => t.priority === priority);
+    const t = this.templates.filter(
+      t => t.directive === 'template' && t.priority === priority,
+    );
     let available = budgetAvail || 0;
     let toBudget = 0;
     let byFlag = false;
@@ -316,7 +318,11 @@ export class CategoryTemplateContext {
     // sort the template lines into regular template, goals, and remainder templates
     if (templates) {
       templates.forEach(t => {
-        if (t.directive === 'template' && t.type !== 'remainder') {
+        if (
+          t.directive === 'template' &&
+          t.type !== 'remainder' &&
+          t.type !== 'limit'
+        ) {
           this.templates.push(t);
           if (t.priority !== null) this.priorities.add(t.priority);
         } else if (t.directive === 'template' && t.type === 'remainder') {
@@ -421,41 +427,53 @@ export class CategoryTemplateContext {
   }
 
   private checkLimit(templates: Template[]) {
-    for (const template of templates
-      .filter(
-        t =>
-          t.type === 'simple' ||
-          t.type === 'periodic' ||
-          t.type === 'remainder',
-      )
-      .filter(t => t.limit)) {
+    for (const template of templates.filter(
+      t =>
+        t.type === 'simple' ||
+        t.type === 'periodic' ||
+        t.type === 'limit' ||
+        t.type === 'remainder',
+    )) {
+      let limitDef;
+      if (template.type === 'limit') {
+        limitDef = template;
+      } else {
+        if (template.limit) {
+          limitDef = template.limit;
+        } else {
+          continue; // may not have a limit defined in the template
+        }
+      }
+
       if (this.limitCheck) {
         throw new Error('Only one `up to` allowed per category');
       }
-      if (template.limit.period === 'daily') {
+
+      if (limitDef.period === 'daily') {
         const numDays = monthUtils.differenceInCalendarDays(
           monthUtils.addMonths(this.month, 1),
           this.month,
         );
-        this.limitAmount += amountToInteger(template.limit.amount) * numDays;
-      } else if (template.limit.period === 'weekly') {
+        this.limitAmount += amountToInteger(limitDef.amount) * numDays;
+      } else if (limitDef.period === 'weekly') {
         const nextMonth = monthUtils.nextMonth(this.month);
-        let week = template.limit.start;
-        const baseLimit = amountToInteger(template.limit.amount);
+        let week = limitDef.start;
+        const baseLimit = amountToInteger(limitDef.amount);
         while (week < nextMonth) {
           if (week >= this.month) {
             this.limitAmount += baseLimit;
           }
           week = monthUtils.addWeeks(week, 1);
         }
-      } else if (template.limit.period === 'monthly') {
-        this.limitAmount = amountToInteger(template.limit.amount);
+      } else if (limitDef.period === 'monthly') {
+        this.limitAmount = amountToInteger(limitDef.amount);
       } else {
         throw new Error('Invalid limit period. Check template syntax');
       }
+
       //amount is good save the rest
       this.limitCheck = true;
-      this.limitHold = template.limit.hold ? true : false;
+      this.limitHold = limitDef.hold ? true : false;
       // check if the limit is already met and save the excess
       if (this.fromLastMonth >= this.limitAmount) {
         this.limitMet = true;
@@ -708,7 +726,7 @@ export class CategoryTemplateContext {
         );
       }
       savedInfo.push({ numMonths, period });
-      if (numMonths < shortNumMonths || !shortNumMonths) {
+      if (numMonths < shortNumMonths || shortNumMonths === undefined) {
         shortNumMonths = numMonths;
       }
     }

@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { View } from '@actual-app/components/view';
 
+import { send } from 'loot-core/platform/client/fetch';
 import * as monthUtils from 'loot-core/shared/months';
 import {
   type SummaryContent,
@@ -36,11 +37,28 @@ export function SummaryCard({
 }: SummaryCardProps) {
   const locale = useLocale();
   const { t } = useTranslation();
-  const [start, end] = calculateTimeRange(meta?.timeFrame, {
-    start: monthUtils.dayFromDate(monthUtils.currentMonth()),
-    end: monthUtils.currentDay(),
-    mode: 'full',
-  });
+  const [latestTransaction, setLatestTransaction] = useState<string>('');
+  const [nameMenuOpen, setNameMenuOpen] = useState(false);
+
+  useEffect(() => {
+    async function fetchLatestTransaction() {
+      const latestTrans = await send('get-latest-transaction');
+      setLatestTransaction(
+        latestTrans ? latestTrans.date : monthUtils.currentDay(),
+      );
+    }
+    fetchLatestTransaction();
+  }, []);
+
+  const [start, end] = calculateTimeRange(
+    meta?.timeFrame,
+    {
+      start: monthUtils.dayFromDate(monthUtils.currentMonth()),
+      end: monthUtils.currentDay(),
+      mode: 'full',
+    },
+    latestTransaction,
+  );
 
   const content = useMemo(
     () =>
@@ -71,8 +89,6 @@ export function SummaryCard({
   );
 
   const data = useReport('summary', params);
-
-  const [nameMenuOpen, setNameMenuOpen] = useState(false);
 
   return (
     <ReportCard
@@ -131,6 +147,7 @@ export function SummaryCard({
           {data ? (
             <SummaryNumber
               value={data?.total ?? 0}
+              contentType={content.type}
               suffix={content.type === 'percentage' ? '%' : ''}
               loading={!data}
               initialFontSize={content.fontSize}

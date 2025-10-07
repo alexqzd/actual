@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Block } from '@actual-app/components/block';
@@ -6,7 +6,8 @@ import { useResponsive } from '@actual-app/components/hooks/useResponsive';
 import { styles } from '@actual-app/components/styles';
 import { View } from '@actual-app/components/view';
 
-import { integerToCurrency } from 'loot-core/shared/util';
+import { send } from 'loot-core/platform/client/fetch';
+import * as monthUtils from 'loot-core/shared/months';
 import {
   type AccountEntity,
   type NetWorthWidget,
@@ -22,6 +23,7 @@ import { ReportCardName } from '@desktop-client/components/reports/ReportCardNam
 import { calculateTimeRange } from '@desktop-client/components/reports/reportRanges';
 import { createSpreadsheet as netWorthSpreadsheet } from '@desktop-client/components/reports/spreadsheets/net-worth-spreadsheet';
 import { useReport } from '@desktop-client/components/reports/useReport';
+import { useFormat } from '@desktop-client/hooks/useFormat';
 import { useLocale } from '@desktop-client/hooks/useLocale';
 import { useSyncedPref } from '@desktop-client/hooks/useSyncedPref';
 
@@ -47,11 +49,27 @@ export function NetWorthCard({
   const { isNarrowWidth } = useResponsive();
   const [_firstDayOfWeekIdx] = useSyncedPref('firstDayOfWeekIdx');
   const firstDayOfWeekIdx = _firstDayOfWeekIdx || '0';
+  const format = useFormat();
 
+  const [latestTransaction, setLatestTransaction] = useState<string>('');
   const [nameMenuOpen, setNameMenuOpen] = useState(false);
-
-  const [start, end] = calculateTimeRange(meta?.timeFrame);
   const [isCardHovered, setIsCardHovered] = useState(false);
+
+  useEffect(() => {
+    async function fetchLatestTransaction() {
+      const latestTrans = await send('get-latest-transaction');
+      setLatestTransaction(
+        latestTrans ? latestTrans.date : monthUtils.currentDay(),
+      );
+    }
+    fetchLatestTransaction();
+  }, []);
+
+  const [start, end] = calculateTimeRange(
+    meta?.timeFrame,
+    undefined,
+    latestTransaction,
+  );
   const onCardHover = useCallback(() => setIsCardHovered(true), []);
   const onCardHoverEnd = useCallback(() => setIsCardHovered(false), []);
 
@@ -66,6 +84,7 @@ export function NetWorthCard({
         locale,
         meta?.interval || 'Monthly',
         firstDayOfWeekIdx,
+        format,
       ),
     [
       start,
@@ -76,6 +95,7 @@ export function NetWorthCard({
       locale,
       meta?.interval,
       firstDayOfWeekIdx,
+      format,
     ],
   );
   const data = useReport('net_worth', params);
@@ -139,7 +159,7 @@ export function NetWorthCard({
                 }}
               >
                 <PrivacyFilter activationFilters={[!isCardHovered]}>
-                  {integerToCurrency(data.netWorth)}
+                  {format(data.netWorth, 'financial')}
                 </PrivacyFilter>
               </Block>
               <PrivacyFilter activationFilters={[!isCardHovered]}>

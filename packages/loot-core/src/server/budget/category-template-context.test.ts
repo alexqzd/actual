@@ -54,7 +54,7 @@ describe('CategoryTemplateContext', () => {
     it('should return limit when monthly is not provided', () => {
       const template: Template = {
         type: 'simple',
-        limit: { amount: 500, hold: false },
+        limit: { amount: 500, hold: false, period: 'monthly' },
         directive: 'template',
         priority: 1,
       };
@@ -771,6 +771,7 @@ describe('CategoryTemplateContext', () => {
           type: 'remainder',
           weight: 2,
           directive: 'template',
+          priority: null,
         },
       ];
       const instance = new TestCategoryTemplateContext(
@@ -796,6 +797,7 @@ describe('CategoryTemplateContext', () => {
           type: 'remainder',
           weight: 1,
           directive: 'template',
+          priority: null,
         },
       ];
       const instance = new TestCategoryTemplateContext(
@@ -821,6 +823,7 @@ describe('CategoryTemplateContext', () => {
           type: 'remainder',
           weight: 1,
           directive: 'template',
+          priority: null,
         },
       ];
       const instance = new TestCategoryTemplateContext(
@@ -860,6 +863,7 @@ describe('CategoryTemplateContext', () => {
           type: 'remainder',
           weight: 1,
           directive: 'template',
+          priority: null,
         },
       ];
 
@@ -983,6 +987,7 @@ describe('CategoryTemplateContext', () => {
           type: 'remainder',
           weight: 1,
           directive: 'template',
+          priority: null,
         },
       ];
 

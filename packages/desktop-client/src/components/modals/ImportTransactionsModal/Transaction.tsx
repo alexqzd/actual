@@ -1,4 +1,5 @@
 import React, { type ComponentProps, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { SvgDownAndRightArrow } from '@actual-app/components/icons/v2';
 import { Stack } from '@actual-app/components/stack';
@@ -53,6 +54,8 @@ export function Transaction({
   onCheckTransaction,
   reconcile,
 }: TransactionProps) {
+  const { t } = useTranslation();
+
   const categoryList = categories.map(category => category.name);
   const transaction = useMemo(
     () =>
@@ -108,11 +111,15 @@ export function Transaction({
             <Tooltip
               content={
                 !transaction.existing && !transaction.ignored
-                  ? 'New transaction. You can import it, or skip it.'
+                  ? t('New transaction. You can import it, or skip it.')
                   : transaction.ignored
-                    ? 'Already imported transaction. You can skip it, or import it again.'
+                    ? t(
+                        'Already imported transaction. You can skip it, or import it again.',
+                      )
                     : transaction.existing
-                      ? 'Updated transaction. You can update it, import it again, or skip it.'
+                      ? t(
+                          'Updated transaction. You can update it, import it again, or skip it.',
+                        )
                       : ''
               }
               placement="right top"
@@ -176,7 +183,7 @@ export function Transaction({
               <View>
                 <SvgDownAndRightArrow width={16} height={16} />
               </View>
-              <View>{formatDate(transaction.date, dateFormat)}</View>
+              <View>{formatDate(transaction.date ?? null, dateFormat)}</View>
             </Stack>
           </View>
         ) : showParsed ? (
@@ -186,7 +193,7 @@ export function Transaction({
             date={transaction.date}
           />
         ) : (
-          formatDate(transaction.date, dateFormat)
+          formatDate(transaction.date ?? null, dateFormat)
         )}
       </Field>
       <Field
@@ -201,12 +208,14 @@ export function Transaction({
       <Field
         width="flex"
         title={
-          categoryList.includes(transaction.category)
+          transaction.category && categoryList.includes(transaction.category)
             ? transaction.category
             : undefined
         }
       >
-        {categoryList.includes(transaction.category) && transaction.category}
+        {transaction.category &&
+          categoryList.includes(transaction.category) &&
+          transaction.category}
       </Field>
       {inOutMode && (
         <Field
@@ -234,7 +243,7 @@ export function Transaction({
             }}
             title={
               outflow === null
-                ? 'Invalid: unable to parse the value'
+                ? t('Invalid: unable to parse the value')
                 : amountToCurrency(outflow)
             }
           >
@@ -251,7 +260,7 @@ export function Transaction({
             }}
             title={
               inflow === null
-                ? 'Invalid: unable to parse the value'
+                ? t('Invalid: unable to parse the value')
                 : amountToCurrency(inflow)
             }
           >
@@ -268,7 +277,9 @@ export function Transaction({
           }}
           title={
             amount === null
-              ? `Invalid: unable to parse the value (${transaction.amount})`
+              ? t('Invalid: unable to parse the value ({{amount}})', {
+                  amount: transaction.amount,
+                })
               : amountToCurrency(amount)
           }
         >

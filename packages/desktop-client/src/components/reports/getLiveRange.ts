@@ -8,16 +8,18 @@ import { getSpecificRange, validateRange } from './reportRanges';
 export function getLiveRange(
   cond: string,
   earliestTransaction: string,
+  latestTransaction: string,
   includeCurrentInterval: boolean,
   firstDayOfWeekIdx?: SyncedPrefs['firstDayOfWeekIdx'],
 ): [string, string, TimeFrame['mode']] {
   let dateStart = earliestTransaction;
-  let dateEnd = monthUtils.currentDay();
+  let dateEnd = latestTransaction;
   const rangeName = ReportOptions.dateRangeMap.get(cond);
   switch (rangeName) {
     case 'yearToDate':
       [dateStart, dateEnd] = validateRange(
         earliestTransaction,
+        latestTransaction,
         monthUtils.getYearStart(monthUtils.currentMonth()) + '-01',
         monthUtils.currentDay(),
       );
@@ -25,6 +27,7 @@ export function getLiveRange(
     case 'lastYear':
       [dateStart, dateEnd] = validateRange(
         earliestTransaction,
+        latestTransaction,
         monthUtils.getYearStart(
           monthUtils.prevYear(monthUtils.currentMonth()),
         ) + '-01',
@@ -32,9 +35,19 @@ export function getLiveRange(
           '-31',
       );
       break;
+    case 'priorYearToDate':
+      [dateStart, dateEnd] = validateRange(
+        earliestTransaction,
+        latestTransaction,
+        monthUtils.getYearStart(
+          monthUtils.prevYear(monthUtils.currentMonth()),
+        ) + '-01',
+        monthUtils.prevYear(monthUtils.currentDate(), 'yyyy-MM-dd'),
+      );
+      break;
     case 'allTime':
       dateStart = earliestTransaction;
-      dateEnd = monthUtils.currentDay();
+      dateEnd = latestTransaction;
       break;
     default:
       if (typeof rangeName === 'number') {

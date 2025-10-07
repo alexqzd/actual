@@ -7,7 +7,6 @@ import { theme } from '@actual-app/components/theme';
 import { View } from '@actual-app/components/view';
 
 import * as monthUtils from 'loot-core/shared/months';
-import { amountToCurrency } from 'loot-core/shared/util';
 import { type SpendingWidget } from 'loot-core/types/models';
 
 import { PrivacyFilter } from '@desktop-client/components/PrivacyFilter';
@@ -19,6 +18,7 @@ import { ReportCardName } from '@desktop-client/components/reports/ReportCardNam
 import { calculateSpendingReportTimeRange } from '@desktop-client/components/reports/reportRanges';
 import { createSpendingSpreadsheet } from '@desktop-client/components/reports/spreadsheets/spending-spreadsheet';
 import { useReport } from '@desktop-client/components/reports/useReport';
+import { useFormat } from '@desktop-client/hooks/useFormat';
 
 type SpendingCardProps = {
   widgetId: string;
@@ -36,13 +36,13 @@ export function SpendingCard({
   onRemove,
 }: SpendingCardProps) {
   const { t } = useTranslation();
-
-  const [compare, compareTo] = calculateSpendingReportTimeRange(meta ?? {});
+  const format = useFormat();
 
   const [isCardHovered, setIsCardHovered] = useState(false);
+  const [nameMenuOpen, setNameMenuOpen] = useState(false);
   const spendingReportMode = meta?.mode ?? 'single-month';
 
-  const [nameMenuOpen, setNameMenuOpen] = useState(false);
+  const [compare, compareTo] = calculateSpendingReportTimeRange(meta ?? {});
 
   const selection =
     spendingReportMode === 'single-month' ? 'compareTo' : spendingReportMode;
@@ -64,8 +64,10 @@ export function SpendingCard({
         : monthUtils.getDay(monthUtils.currentDay()) - 1;
   const difference =
     data &&
-    data.intervalData[todayDay][selection] -
-      data.intervalData[todayDay].compare;
+    Math.round(
+      data.intervalData[todayDay][selection] -
+        data.intervalData[todayDay].compare,
+    );
 
   return (
     <ReportCard
@@ -137,7 +139,7 @@ export function SpendingCard({
                 <PrivacyFilter activationFilters={[!isCardHovered]}>
                   {data &&
                     (difference && difference > 0 ? '+' : '') +
-                      amountToCurrency(difference || 0)}
+                      format(difference || 0, 'financial')}
                 </PrivacyFilter>
               </Block>
             </View>

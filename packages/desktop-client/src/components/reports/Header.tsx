@@ -34,6 +34,7 @@ type HeaderProps = {
   show1Month?: boolean;
   allMonths: Array<{ name: string; pretty: string }>;
   earliestTransaction: string;
+  latestTransaction: string;
   firstDayOfWeekIdx?: SyncedPrefs['firstDayOfWeekIdx'];
   onChangeDates: (
     start: TimeFrame['start'],
@@ -59,6 +60,7 @@ export function Header({
   show1Month,
   allMonths,
   earliestTransaction,
+  latestTransaction,
   firstDayOfWeekIdx,
   onChangeDates,
   filters,
@@ -129,6 +131,7 @@ export function Header({
                   onChangeDates(
                     ...validateStart(
                       allMonths[allMonths.length - 1].name,
+                      allMonths[0].name,
                       newValue,
                       end,
                     ),
@@ -144,6 +147,7 @@ export function Header({
                   onChangeDates(
                     ...validateEnd(
                       allMonths[allMonths.length - 1].name,
+                      allMonths[0].name,
                       start,
                       newValue,
                     ),
@@ -160,7 +164,7 @@ export function Header({
             {show1Month && (
               <Button
                 variant="bare"
-                onPress={() => onChangeDates(...getLatestRange(1))}
+                onPress={() => onChangeDates(...getLatestRange(0))}
               >
                 <Trans>1 month</Trans>
               </Button>
@@ -191,6 +195,7 @@ export function Header({
                     ...getLiveRange(
                       'Year to date',
                       earliestTransaction,
+                      latestTransaction,
                       true,
                       firstDayOfWeekIdx,
                     ),
@@ -209,6 +214,7 @@ export function Header({
                     ...getLiveRange(
                       'Last year',
                       earliestTransaction,
+                      latestTransaction,
                       false,
                       firstDayOfWeekIdx,
                     ),
@@ -223,7 +229,29 @@ export function Header({
               variant="bare"
               onPress={() =>
                 onChangeDates(
-                  ...getFullRange(allMonths[allMonths.length - 1].name),
+                  ...convertToMonth(
+                    ...getLiveRange(
+                      'Prior year to date',
+                      earliestTransaction,
+                      latestTransaction,
+                      false,
+                      firstDayOfWeekIdx,
+                    ),
+                    'priorYearToDate',
+                  ),
+                )
+              }
+            >
+              <Trans>Prior year to date</Trans>
+            </Button>
+            <Button
+              variant="bare"
+              onPress={() =>
+                onChangeDates(
+                  ...getFullRange(
+                    allMonths[allMonths.length - 1].name,
+                    allMonths[0].name,
+                  ),
                 )
               }
             >
