@@ -6,6 +6,7 @@ import * as sheet from '../sheet';
 import { resolveName } from '../spreadsheet/util';
 
 import { createCategory as createCategoryFromBase } from './base';
+import { calculateForecastedToBudget } from './forecast';
 import { number, sumAmounts, flatten2, unflatten2 } from './util';
 
 function getBlankSheet(months) {
@@ -205,6 +206,19 @@ export function createSummary(groups, categories, prevSheetName, sheetName) {
           number(totalBudgeted) -
           number(buffered),
       );
+    },
+  });
+
+  // CUSTOM: Forecast Budget Feature
+  // Calculate forecasted "to budget" including expected income from schedules
+  sheet.get().createDynamic(sheetName, 'forecasted-to-budget', {
+    initialValue: 0,
+    dependencies: ['to-budget'],
+    run: toBudget => {
+      // Convert sheetName 'budget202510' to month format '2025-10'
+      const monthStr = sheetName.slice(6); // Remove 'budget' prefix
+      const month = monthStr.slice(0, 4) + '-' + monthStr.slice(4); // Add hyphen
+      return calculateForecastedToBudget(month, number(toBudget));
     },
   });
 

@@ -164,6 +164,7 @@ export const envelopeBudget = {
   forNextMonth: 'buffered-selected',
   totalBudgeted: 'total-budgeted',
   toBudget: 'to-budget',
+  forecastedToBudget: 'forecasted-to-budget', // CUSTOM: Forecast Budget Feature
 
   fromLastMonth: 'from-last-month',
   manualBuffered: 'buffered',

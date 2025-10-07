@@ -104,6 +104,18 @@ function handleTransactionChange(transaction, changedFields) {
     sheet
       .get()
       .recompute(resolveName(sheetName, 'sum-amount-' + transaction.category));
+
+    // CUSTOM: Forecast Budget Feature
+    // If the transaction is linked to a schedule, recompute forecasted-to-budget
+    if (transaction.schedule && changedFields.has('schedule')) {
+      const { createdMonths = new Set() } = sheet.get().meta();
+      createdMonths.forEach(budgetMonth => {
+        const budgetSheetName = monthUtils.sheetForMonth(budgetMonth);
+        sheet
+          .get()
+          .recompute(resolveName(budgetSheetName, 'forecasted-to-budget'));
+      });
+    }
   }
 }
 
@@ -119,6 +131,22 @@ function handleCategoryMappingChange(months, oldValue, newValue) {
       .get()
       .recompute(resolveName(sheetName, 'sum-amount-' + newValue.transferId));
   });
+}
+
+// CUSTOM: Forecast Budget Feature
+// Handle schedule changes and recompute forecasted-to-budget
+function handleScheduleChange(months, oldValue, newValue) {
+  const affectedFields = ['next_date', 'completed', '_amount', '_date'];
+  const hasRelevantChange =
+    !oldValue ||
+    affectedFields.some(field => oldValue[field] !== newValue[field]);
+
+  if (hasRelevantChange) {
+    months.forEach(month => {
+      const sheetName = monthUtils.sheetForMonth(month);
+      sheet.get().recompute(resolveName(sheetName, 'forecasted-to-budget'));
+    });
+  }
 }
 
 function handleBudgetMonthChange(budget) {
@@ -194,6 +222,9 @@ export function triggerBudgetChanges(oldValues, newValues) {
           }
         } else if (table === 'accounts') {
           handleAccountChange(createdMonths, oldValue, newValue);
+        } else if (table === 'schedules') {
+          // CUSTOM: Forecast Budget Feature
+          handleScheduleChange(createdMonths, oldValue, newValue);
         }
       });
     });
