@@ -383,6 +383,7 @@ handlers['api/budget-month'] = async function ({ month }) {
     forNextMonth: value('buffered') as number,
     totalBudgeted: value('total-budgeted') as number,
     toBudget: value('to-budget') as number,
+    expectedToBudget: value('forecasted-to-budget') as number, // CUSTOM: Forecast Budget Feature
 
     fromLastMonth: value('from-last-month') as number,
     totalIncome: value('total-income') as number,

@@ -54,6 +54,7 @@ export interface ApiHandlers {
     forNextMonth: number;
     totalBudgeted: number;
     toBudget: number;
+    expectedToBudget: number; // CUSTOM: Forecast Budget Feature
 
     fromLastMonth: number;
     totalIncome: number;
