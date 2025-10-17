@@ -1,6 +1,7 @@
 // @ts-strict-ignore
 import * as d from 'date-fns';
 
+import { logger } from '../../platform/server/log';
 import * as monthUtils from '../../shared/months';
 import { currentDate, monthFromDate } from '../../shared/months';
 import { q } from '../../shared/query';
@@ -15,6 +16,18 @@ import * as db from '../db';
 import { Schedule as RSchedule } from '../util/rschedule';
 
 /**
+ * Schedule data returned from the database query
+ */
+interface ScheduleQueryResult {
+  id: string;
+  rule: string;
+  completed: number;
+  next_date: number | string;
+  conditions: string | null;
+  actions: string | null;
+}
+
+/**
  * Convert a date from integer format (YYYYMMDD) to string format (YYYY-MM-DD)
  */
 function formatDateInt(dateInt: number | string): string {
@@ -26,7 +39,7 @@ function getScheduleOccurrencesUpToMonth({
   s,
   month,
 }: {
-  s: ScheduleEntity;
+  s: Pick<ScheduleEntity, '_date' | 'next_date'>;
   month: string;
 }) {
   const config = s._date;
@@ -34,7 +47,7 @@ function getScheduleOccurrencesUpToMonth({
   // If the frequency is undefined, we assume it's a one-time schedule
   if (!config.frequency) {
     // If one-time schedule, return the date if it happens before or on the given month
-    const monthIsScheduled = monthFromDate(config);
+    const monthIsScheduled = monthFromDate(config.start);
     return monthIsScheduled <= month ? [config] : [];
   }
 
@@ -76,7 +89,7 @@ function getScheduleOccurrencesUpToMonth({
           : date.date,
       );
   } catch (err) {
-    console.error('Error calculating schedule occurrences:', err);
+    logger.error('Error calculating schedule occurrences:', err);
     return [];
   }
 }
@@ -84,7 +97,10 @@ function getScheduleOccurrencesUpToMonth({
 /**
  * Check if a schedule has associated transactions near its next_date
  */
-function scheduleHasTransactions(scheduleId: string, nextDate: string): boolean {
+function scheduleHasTransactions(
+  scheduleId: string,
+  nextDate: string,
+): boolean {
   try {
     // Check for transactions within 2 days of the schedule date
     const twoDaysBack = monthUtils.subDays(nextDate, 2);
@@ -100,7 +116,7 @@ function scheduleHasTransactions(scheduleId: string, nextDate: string): boolean 
 
     return result.length > 0 && result[0].count > 0;
   } catch (error) {
-    console.error('Error checking schedule transactions:', error);
+    logger.error('Error checking schedule transactions:', error);
     return false;
   }
 }
@@ -144,7 +160,7 @@ export function calculateForecastedToBudget(
 ): number {
   try {
     // Fetch all active schedules by joining with rules table and extracting amount/date
-    const schedules = db.runQuery(
+    const schedules = db.runQuery<ScheduleQueryResult>(
       `SELECT
         s.id,
         s.rule,
@@ -176,8 +192,12 @@ export function calculateForecastedToBudget(
         }
 
         // Parse the rule's conditions and actions from JSON
-        const conditions = typeof s.conditions === 'string' ? JSON.parse(s.conditions) : s.conditions;
-        const actions = typeof s.actions === 'string' ? JSON.parse(s.actions) : s.actions;
+        const conditions =
+          typeof s.conditions === 'string'
+            ? JSON.parse(s.conditions)
+            : s.conditions;
+        const actions =
+          typeof s.actions === 'string' ? JSON.parse(s.actions) : s.actions;
 
         // Extract schedule conditions using the shared utility
         const conds = extractScheduleConds(conditions);
@@ -198,7 +218,11 @@ export function calculateForecastedToBudget(
         const hasTrans = scheduleHasTransactions(s.id, nextDateStr);
 
         // Get schedule status
-        const status = getScheduleStatus(nextDateStr, s.completed, hasTrans);
+        const status = getScheduleStatus(
+          nextDateStr,
+          Boolean(s.completed),
+          hasTrans,
+        );
 
         // Determine if this schedule should be included
         let shouldInclude = false;
@@ -225,7 +249,10 @@ export function calculateForecastedToBudget(
         };
 
         // Calculate occurrences for this schedule
-        let occurrences = getScheduleOccurrencesUpToMonth({ s: scheduleWithDate, month });
+        let occurrences = getScheduleOccurrencesUpToMonth({
+          s: scheduleWithDate,
+          month,
+        });
 
         // If already paid, remove the first occurrence
         if (status === 'paid') {
@@ -233,7 +260,7 @@ export function calculateForecastedToBudget(
         }
 
         // Only count if not already paid or if next_date is not in the processing month
-        if (!hasTrans || monthFromDate(s.next_date) !== month) {
+        if (!hasTrans || monthFromDate(nextDateStr) !== month) {
           const timesThisMonth = occurrences.length;
           if (timesThisMonth > 0) {
             const amount = Number(scheduleAmount);
@@ -243,13 +270,16 @@ export function calculateForecastedToBudget(
           }
         }
       } catch (scheduleError) {
-        console.error(`[FORECAST ERROR] Processing schedule ${s.id}:`, scheduleError);
+        logger.error(
+          `[FORECAST ERROR] Processing schedule ${s.id}:`,
+          scheduleError,
+        );
       }
     });
 
     return totalExpectedIncome + currentToBudget;
   } catch (error) {
-    console.error('Error calculating forecasted to budget:', error);
+    logger.error('Error calculating forecasted to budget:', error);
     return currentToBudget; // Fallback to current value on error
   }
 }
