@@ -38,6 +38,7 @@ import {
   AmountOPType,
 } from './api-models';
 import { aqlQuery } from './aql';
+import { getSchedulesForForecastedToBudget } from './budget/forecast';
 import * as cloudStorage from './cloud-storage';
 import { type RemoteFile } from './cloud-storage';
 import * as db from './db';
@@ -374,6 +375,9 @@ handlers['api/budget-month'] = async function ({ month }) {
     return v === '' ? 0 : v;
   }
 
+  // Get schedule details for forecasted to budget
+  const forecastedSchedules = getSchedulesForForecastedToBudget(month);
+
   // This is duplicated from main.js because the return format is
   // different (for now)
   return {
@@ -384,6 +388,7 @@ handlers['api/budget-month'] = async function ({ month }) {
     totalBudgeted: value('total-budgeted') as number,
     toBudget: value('to-budget') as number,
     expectedToBudget: value('forecasted-to-budget') as number, // CUSTOM: Forecast Budget Feature
+    forecastedSchedules: forecastedSchedules, // CUSTOM: Forecast Budget Feature - Schedule details
 
     fromLastMonth: value('from-last-month') as number,
     totalIncome: value('total-income') as number,

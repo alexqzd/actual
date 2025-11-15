@@ -95,6 +95,57 @@ function getScheduleOccurrencesUpToMonth({
 }
 
 /**
+ * Get schedule occurrences only within a specific month (not cumulative)
+ */
+function getScheduleOccurrencesInMonth({
+  s,
+  month,
+}: {
+  s: Pick<ScheduleEntity, '_date' | 'next_date'>;
+  month: string;
+}) {
+  const config = s._date;
+
+  // If the frequency is undefined, we assume it's a one-time schedule
+  if (!config.frequency) {
+    // If one-time schedule, return the date if it happens in the given month
+    const monthIsScheduled = monthFromDate(config.start);
+    return monthIsScheduled === month ? [config] : [];
+  }
+
+  const rules = recurConfigToRSchedule(config);
+
+  try {
+    const schedule = new RSchedule({ rrules: rules });
+
+    const count = 100; // Maximum occurrences to check
+
+    const yearMonth = String(month).slice(0, 7);
+    const year = Number(yearMonth.slice(0, 4));
+    const monthIndex = Number(yearMonth.slice(5, 7)) - 1; // month is 0-indexed
+    const firstDayOfTargetMonth = new Date(year, monthIndex, 1);
+    const lastDayOfTargetMonth = d.endOfMonth(firstDayOfTargetMonth);
+
+    // Start searching from the beginning of the target month
+    return schedule
+      .occurrences({
+        start: firstDayOfTargetMonth,
+        end: lastDayOfTargetMonth,
+        take: count,
+      })
+      .toArray()
+      .map(date =>
+        config.skipWeekend
+          ? getDateWithSkippedWeekend(date.date, config.weekendSolveMode)
+          : date.date,
+      );
+  } catch (err) {
+    logger.error('Error calculating schedule occurrences in month:', err);
+    return [];
+  }
+}
+
+/**
  * Check if a schedule has associated transactions near its next_date
  */
 function scheduleHasTransactions(
@@ -147,6 +198,157 @@ function getScheduleStatus(
     return 'missed';
   } else {
     return 'scheduled';
+  }
+}
+
+/**
+ * Schedule detail for UI display
+ */
+export interface ForecastedScheduleDetail {
+  id: string;
+  name: string;
+  amount: number;
+  occurrences: number;
+  total: number;
+  status: string;
+}
+
+/**
+ * Get detailed schedule information for the forecasted "to budget" calculation
+ */
+export function getSchedulesForForecastedToBudget(
+  month: string,
+): ForecastedScheduleDetail[] {
+  try {
+    // Fetch all active schedules
+    const schedules = db.runQuery<
+      ScheduleQueryResult & { schedule_name: string }
+    >(
+      `SELECT
+        s.id,
+        s.name as schedule_name,
+        s.rule,
+        s.completed,
+        snd.local_next_date as next_date,
+        r.conditions,
+        r.actions
+       FROM schedules s
+       JOIN schedules_next_date snd ON snd.schedule_id = s.id
+       LEFT JOIN rules r ON r.id = s.rule
+       WHERE s.tombstone = 0
+       AND s.completed = 0`,
+      [],
+      true,
+    );
+
+    if (schedules.length === 0) {
+      return [];
+    }
+
+    // Fetch all payees for mapping
+    const payees = db.runQuery<{ id: string; name: string }>(
+      `SELECT id, name FROM payees WHERE tombstone = 0`,
+      [],
+      true,
+    );
+    const payeeMap = new Map(payees.map(p => [p.id, p.name]));
+
+    const scheduleDetails: ForecastedScheduleDetail[] = [];
+
+    schedules.forEach(s => {
+      try {
+        // Skip schedules with no matching rule
+        if (!s.conditions || !s.actions) {
+          return;
+        }
+
+        // Parse the rule's conditions and actions from JSON
+        const conditions =
+          typeof s.conditions === 'string'
+            ? JSON.parse(s.conditions)
+            : s.conditions;
+        const actions =
+          typeof s.actions === 'string' ? JSON.parse(s.actions) : s.actions;
+
+        // Extract schedule conditions using the shared utility
+        const conds = extractScheduleConds(conditions);
+
+        // Get amount, date, and payee from conditions
+        const scheduleAmount = conds.amount?.value;
+        const dateConfig = conds.date?.value;
+        const payeeId = conds.payee?.value;
+
+        // Skip if no amount or date, or if not income (amount <= 0)
+        if (!scheduleAmount || !dateConfig || Number(scheduleAmount) <= 0) {
+          return;
+        }
+
+        // Convert next_date from integer to string format
+        const nextDateStr = formatDateInt(s.next_date);
+
+        // Check if schedule has transactions
+        const hasTrans = scheduleHasTransactions(s.id, nextDateStr);
+
+        // Get schedule status
+        const status = getScheduleStatus(
+          nextDateStr,
+          Boolean(s.completed),
+          hasTrans,
+        );
+
+        const payeeName = payeeId ? payeeMap.get(payeeId) : null;
+        const displayName = s.schedule_name || payeeName || 'Unknown';
+
+        // Create schedule entity with date config for occurrence calculation
+        const scheduleWithDate = {
+          ...s,
+          next_date: nextDateStr,
+          _date: dateConfig,
+          _amount: scheduleAmount,
+        };
+
+        // Calculate occurrences for this schedule ONLY in the target month
+        // This will automatically filter out months where there are no occurrences
+        let occurrences = getScheduleOccurrencesInMonth({
+          s: scheduleWithDate,
+          month,
+        });
+
+        // Filter out occurrences that are today or in the past (already happened)
+        const today = monthUtils.currentDay();
+        occurrences = occurrences.filter(occ => {
+          // Convert Date object to YYYY-MM-DD string format
+          const occDate = monthUtils.dayFromDate(occ);
+          return occDate > today;
+        });
+
+        // Add schedule to the list if it has future occurrences in the target month
+        const occurrenceCount = occurrences.length;
+        if (occurrenceCount > 0) {
+          const amount = Number(scheduleAmount);
+          if (!isNaN(amount) && amount > 0) {
+            scheduleDetails.push({
+              id: s.id,
+              name: displayName,
+              amount: amount,
+              occurrences: occurrenceCount,
+              total: amount * occurrenceCount,
+              status: status,
+            });
+          }
+        }
+      } catch (scheduleError) {
+        logger.error(
+          `[FORECAST ERROR] Processing schedule ${s.id}:`,
+          scheduleError,
+        );
+      }
+    });
+
+    return scheduleDetails;
+  } catch (error) {
+    logger.error('Error getting forecasted schedules:', error);
+    return [];
   }
 }
 
@@ -224,22 +426,6 @@ export function calculateForecastedToBudget(
           hasTrans,
         );
 
-        // Determine if this schedule should be included
-        let shouldInclude = false;
-
-        if (
-          ['due', 'upcoming', 'missed', 'scheduled'].includes(status) &&
-          monthFromDate(nextDateStr) <= month
-        ) {
-          shouldInclude = true;
-        } else if (status === 'paid' && monthFromDate(nextDateStr) !== month) {
-          shouldInclude = true;
-        }
-
-        if (!shouldInclude) {
-          return;
-        }
-
         // Create schedule entity with date config for occurrence calculation
         const scheduleWithDate = {
           ...s,
@@ -248,25 +434,27 @@ export function calculateForecastedToBudget(
           _amount: scheduleAmount,
         };
 
-        // Calculate occurrences for this schedule
+        // Calculate occurrences for this schedule UP TO the target month
+        // (includes all months from now through the target month)
         let occurrences = getScheduleOccurrencesUpToMonth({
           s: scheduleWithDate,
           month,
         });
 
-        // If already paid, remove the first occurrence
-        if (status === 'paid') {
-          occurrences = occurrences.slice(1);
-        }
+        // Filter out occurrences that are today or in the past (already happened)
+        // This ensures we only count future income
+        const today = monthUtils.currentDay();
+        occurrences = occurrences.filter(occ => {
+          const occDate = monthUtils.dayFromDate(occ);
+          return occDate > today;
+        });
 
-        // Only count if not already paid or if next_date is not in the processing month
-        if (!hasTrans || monthFromDate(nextDateStr) !== month) {
-          const timesThisMonth = occurrences.length;
-          if (timesThisMonth > 0) {
-            const amount = Number(scheduleAmount);
-            if (!isNaN(amount) && amount > 0) {
-              totalExpectedIncome += amount * timesThisMonth;
-            }
+        // Add future occurrences to the total expected income
+        const totalOccurrences = occurrences.length;
+        if (totalOccurrences > 0) {
+          const amount = Number(scheduleAmount);
+          if (!isNaN(amount) && amount > 0) {
+            totalExpectedIncome += amount * totalOccurrences;
           }
         }
       } catch (scheduleError) {

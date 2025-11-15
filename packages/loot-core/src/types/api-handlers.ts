@@ -10,6 +10,7 @@ import type {
   APIPayeeEntity,
   APIScheduleEntity,
 } from '../server/api-models';
+import type { ForecastedScheduleDetail } from '../server/budget/forecast';
 import { BudgetFileHandlers } from '../server/budgetfiles/app';
 import { type batchUpdateTransactions } from '../server/transactions';
 
@@ -55,6 +56,7 @@ export interface ApiHandlers {
     totalBudgeted: number;
     toBudget: number;
     expectedToBudget: number; // CUSTOM: Forecast Budget Feature
+    forecastedSchedules: ForecastedScheduleDetail[]; // CUSTOM: Forecast Budget Feature
 
     fromLastMonth: number;
     totalIncome: number;

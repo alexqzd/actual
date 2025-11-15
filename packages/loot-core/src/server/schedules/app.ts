@@ -485,12 +485,10 @@ async function advanceSchedulesService(syncSuccess) {
             // find the rule
           }
         } else {
-          if (schedule._date < currentDay()) {
-            // Complete any single schedules
-            await updateSchedule({
-              schedule: { id: schedule.id, completed: true },
-            });
-          }
+          // Complete one-time schedules that have been paid
+          await updateSchedule({
+            schedule: { id: schedule.id, completed: true },
+          });
         }
       }
     } else if (

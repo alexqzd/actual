@@ -136,7 +136,7 @@ function handleCategoryMappingChange(months, oldValue, newValue) {
 // CUSTOM: Forecast Budget Feature
 // Handle schedule changes and recompute forecasted-to-budget
 function handleScheduleChange(months, oldValue, newValue) {
-  const affectedFields = ['next_date', 'completed', '_amount', '_date'];
+  const affectedFields = ['next_date', 'completed', '_amount', '_date', 'tombstone'];
   const hasRelevantChange =
     !oldValue ||
     affectedFields.some(field => oldValue[field] !== newValue[field]);
@@ -146,6 +146,34 @@ function handleScheduleChange(months, oldValue, newValue) {
       const sheetName = monthUtils.sheetForMonth(month);
       sheet.get().recompute(resolveName(sheetName, 'forecasted-to-budget'));
     });
+  }
+}
+
+// CUSTOM: Forecast Budget Feature
+// Handle rule changes for schedules and recompute forecasted-to-budget
+function handleRuleChange(months, oldValue, newValue) {
+  // Check if this rule is linked to a schedule
+  if (newValue.actions) {
+    const actions =
+      typeof newValue.actions === 'string'
+        ? JSON.parse(newValue.actions)
+        : newValue.actions;
+
+    const hasScheduleLink = actions?.some(a => a.op === 'link-schedule');
+
+    if (hasScheduleLink) {
+      // Rule is linked to a schedule, check if conditions changed
+      const hasConditionChange =
+        !oldValue ||
+        JSON.stringify(oldValue.conditions) !== JSON.stringify(newValue.conditions);
+
+      if (hasConditionChange) {
+        months.forEach(month => {
+          const sheetName = monthUtils.sheetForMonth(month);
+          sheet.get().recompute(resolveName(sheetName, 'forecasted-to-budget'));
+        });
+      }
+    }
   }
 }
 
@@ -225,6 +253,9 @@ export function triggerBudgetChanges(oldValues, newValues) {
         } else if (table === 'schedules') {
           // CUSTOM: Forecast Budget Feature
           handleScheduleChange(createdMonths, oldValue, newValue);
+        } else if (table === 'rules') {
+          // CUSTOM: Forecast Budget Feature
+          handleRuleChange(createdMonths, oldValue, newValue);
         }
       });
     });
