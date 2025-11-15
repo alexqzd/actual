@@ -46,9 +46,45 @@ function getScheduleOccurrencesUpToMonth({
 
   // If the frequency is undefined, we assume it's a one-time schedule
   if (!config.frequency) {
-    // If one-time schedule, return the date if it happens before or on the given month
-    const monthIsScheduled = monthFromDate(config.start);
-    return monthIsScheduled <= month ? [config] : [];
+    // If one-time schedule, config IS the date string (not an object)
+    try {
+      // For one-time schedules, config is directly the date string
+      const startDate = typeof config === 'string' ? config : config.start;
+
+      if (!startDate) {
+        logger.error('[FORECAST] One-time schedule missing date');
+        return [];
+      }
+
+      const monthIsScheduled = monthFromDate(startDate);
+      if (monthIsScheduled <= month) {
+        // Parse the start date and return as a Date object
+        const year = Number(startDate.slice(0, 4));
+        const monthIndex = Number(startDate.slice(5, 7)) - 1;
+        const day = Number(startDate.slice(8, 10));
+
+        if (isNaN(year) || isNaN(monthIndex) || isNaN(day)) {
+          logger.error(
+            `[FORECAST] Invalid date components: year=${year}, month=${monthIndex}, day=${day}`,
+          );
+          return [];
+        }
+
+        const dateObj = new Date(year, monthIndex, day);
+        if (isNaN(dateObj.getTime())) {
+          logger.error(
+            `[FORECAST] Invalid Date object created from: ${startDate}`,
+          );
+          return [];
+        }
+
+        return [dateObj];
+      }
+      return [];
+    } catch (err) {
+      logger.error('[FORECAST] Error parsing one-time schedule date:', err);
+      return [];
+    }
   }
 
   const rules = recurConfigToRSchedule(config);
@@ -108,9 +144,45 @@ function getScheduleOccurrencesInMonth({
 
   // If the frequency is undefined, we assume it's a one-time schedule
   if (!config.frequency) {
-    // If one-time schedule, return the date if it happens in the given month
-    const monthIsScheduled = monthFromDate(config.start);
-    return monthIsScheduled === month ? [config] : [];
+    // If one-time schedule, config IS the date string (not an object)
+    try {
+      // For one-time schedules, config is directly the date string
+      const startDate = typeof config === 'string' ? config : config.start;
+
+      if (!startDate) {
+        logger.error('[FORECAST] One-time schedule missing date (inMonth)');
+        return [];
+      }
+
+      const monthIsScheduled = monthFromDate(startDate);
+      if (monthIsScheduled === month) {
+        // Parse the start date and return as a Date object
+        const year = Number(startDate.slice(0, 4));
+        const monthIndex = Number(startDate.slice(5, 7)) - 1;
+        const day = Number(startDate.slice(8, 10));
+
+        if (isNaN(year) || isNaN(monthIndex) || isNaN(day)) {
+          logger.error(
+            `[FORECAST] Invalid date components: year=${year}, month=${monthIndex}, day=${day}`,
+          );
+          return [];
+        }
+
+        const dateObj = new Date(year, monthIndex, day);
+        if (isNaN(dateObj.getTime())) {
+          logger.error(
+            `[FORECAST] Invalid Date object created from: ${startDate}`,
+          );
+          return [];
+        }
+
+        return [dateObj];
+      }
+      return [];
+    } catch (err) {
+      logger.error('[FORECAST] Error parsing one-time schedule date (inMonth):', err);
+      return [];
+    }
   }
 
   const rules = recurConfigToRSchedule(config);
