@@ -358,7 +358,7 @@ handlers['api/query'] = async function ({ query }) {
 handlers['api/budget-months'] = async function () {
   checkFileOpen();
   const { start, end } = await handlers['get-budget-bounds']();
-  return monthUtils.range(start, end);
+  return monthUtils.rangeInclusive(start, end);
 };
 
 handlers['api/budget-month'] = async function ({ month }) {
