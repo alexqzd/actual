@@ -92,7 +92,7 @@ async function validateMonth(month) {
 
   if (!IMPORT_MODE) {
     const { start, end } = await handlers['get-budget-bounds']();
-    const range = monthUtils.range(start, end);
+    const range = monthUtils.rangeInclusive(start, end);
     if (!range.includes(month)) {
       throw APIError('No budget exists for month: ' + month);
     }
