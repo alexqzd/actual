@@ -386,12 +386,13 @@ export function getSchedulesForForecastedToBudget(
           month,
         });
 
-        // Filter out occurrences that are today or in the past (already happened)
+        // Filter out occurrences that are in the past (already happened)
+        // Include today since schedules due today should be counted
         const today = monthUtils.currentDay();
         occurrences = occurrences.filter(occ => {
           // Convert Date object to YYYY-MM-DD string format
           const occDate = monthUtils.dayFromDate(occ);
-          return occDate > today;
+          return occDate >= today;
         });
 
         // Add schedule to the list if it has future occurrences in the target month
@@ -513,12 +514,12 @@ export function calculateForecastedToBudget(
           month,
         });
 
-        // Filter out occurrences that are today or in the past (already happened)
-        // This ensures we only count future income
+        // Filter out occurrences that are in the past (already happened)
+        // Include today since schedules due today should be counted
         const today = monthUtils.currentDay();
         occurrences = occurrences.filter(occ => {
           const occDate = monthUtils.dayFromDate(occ);
-          return occDate > today;
+          return occDate >= today;
         });
 
         // Add future occurrences to the total expected income
