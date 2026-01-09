@@ -3,15 +3,14 @@ import * as d from 'date-fns';
 
 import { logger } from '../../platform/server/log';
 import * as monthUtils from '../../shared/months';
-import { currentDate, monthFromDate } from '../../shared/months';
-import { q } from '../../shared/query';
+import { monthFromDate } from '../../shared/months';
 import {
   extractScheduleConds,
   getDateWithSkippedWeekend,
+  getStatus,
   recurConfigToRSchedule,
 } from '../../shared/schedules';
 import { ScheduleEntity } from '../../types/models';
-import { aqlQuery } from '../aql';
 import * as db from '../db';
 import { Schedule as RSchedule } from '../util/rschedule';
 
@@ -218,22 +217,37 @@ function getScheduleOccurrencesInMonth({
 }
 
 /**
+ * Convert a date string (YYYY-MM-DD) to integer format (YYYYMMDD)
+ */
+function dateStringToInt(dateStr: string): number {
+  return Number(dateStr.replace(/-/g, ''));
+}
+
+/**
  * Check if a schedule has associated transactions near its next_date
  */
 function scheduleHasTransactions(
   scheduleId: string,
   nextDate: string,
+  isOneTime: boolean,
 ): boolean {
   try {
-    // Check for transactions within 2 days of the schedule date
-    const twoDaysBack = monthUtils.subDays(nextDate, 2);
+    // For one-time schedules, look for exact date match
+    // For recurring schedules, look within 2 days before the scheduled date
+    const dateFilter = isOneTime
+      ? nextDate
+      : monthUtils.subDays(nextDate, 2);
 
+    // Convert to integer format for SQLite comparison (dates stored as INTEGER)
+    const dateFilterInt = dateStringToInt(dateFilter);
+
+    // Query the raw transactions table with tombstone filter
     const result = db.runQuery<{ count: number }>(
       `SELECT COUNT(*) as count FROM transactions
        WHERE schedule = ?
        AND date >= ?
        AND tombstone = 0`,
-      [scheduleId, twoDaysBack],
+      [scheduleId, dateFilterInt],
       true,
     );
 
@@ -241,35 +255,6 @@ function scheduleHasTransactions(
   } catch (error) {
     logger.error('Error checking schedule transactions:', error);
     return false;
-  }
-}
-
-/**
- * Get the status of a schedule based on its next_date and completion status
- */
-function getScheduleStatus(
-  nextDate: string,
-  completed: boolean,
-  hasTrans: boolean,
-): string {
-  const upcomingDays = 7;
-  const today = monthUtils.currentDay();
-
-  if (completed) {
-    return 'completed';
-  } else if (hasTrans) {
-    return 'paid';
-  } else if (nextDate === today) {
-    return 'due';
-  } else if (
-    nextDate > today &&
-    nextDate <= monthUtils.addDays(today, upcomingDays)
-  ) {
-    return 'upcoming';
-  } else if (nextDate < today) {
-    return 'missed';
-  } else {
-    return 'scheduled';
   }
 }
 
@@ -334,13 +319,11 @@ export function getSchedulesForForecastedToBudget(
           return;
         }
 
-        // Parse the rule's conditions and actions from JSON
+        // Parse the rule's conditions from JSON
         const conditions =
           typeof s.conditions === 'string'
             ? JSON.parse(s.conditions)
             : s.conditions;
-        const actions =
-          typeof s.actions === 'string' ? JSON.parse(s.actions) : s.actions;
 
         // Extract schedule conditions using the shared utility
         const conds = extractScheduleConds(conditions);
@@ -358,11 +341,14 @@ export function getSchedulesForForecastedToBudget(
         // Convert next_date from integer to string format
         const nextDateStr = formatDateInt(s.next_date);
 
-        // Check if schedule has transactions
-        const hasTrans = scheduleHasTransactions(s.id, nextDateStr);
+        // Check if schedule is one-time (no frequency)
+        const isOneTime = !dateConfig.frequency;
 
-        // Get schedule status
-        const status = getScheduleStatus(
+        // Check if schedule has transactions
+        const hasTrans = scheduleHasTransactions(s.id, nextDateStr, isOneTime);
+
+        // Get schedule status using the shared function
+        const status = getStatus(
           nextDateStr,
           Boolean(s.completed),
           hasTrans,
@@ -387,12 +373,12 @@ export function getSchedulesForForecastedToBudget(
         });
 
         // Filter out occurrences that are in the past (already happened)
-        // Include today since schedules due today should be counted
+        // If the schedule is paid, exclude today's occurrence since it's already accounted for
+        // Otherwise include today since schedules due today should be counted
         const today = monthUtils.currentDay();
         occurrences = occurrences.filter(occ => {
-          // Convert Date object to YYYY-MM-DD string format
           const occDate = monthUtils.dayFromDate(occ);
-          return occDate >= today;
+          return status === 'paid' ? occDate > today : occDate >= today;
         });
 
         // Add schedule to the list if it has future occurrences in the target month
@@ -466,13 +452,11 @@ export function calculateForecastedToBudget(
           return;
         }
 
-        // Parse the rule's conditions and actions from JSON
+        // Parse the rule's conditions from JSON
         const conditions =
           typeof s.conditions === 'string'
             ? JSON.parse(s.conditions)
             : s.conditions;
-        const actions =
-          typeof s.actions === 'string' ? JSON.parse(s.actions) : s.actions;
 
         // Extract schedule conditions using the shared utility
         const conds = extractScheduleConds(conditions);
@@ -489,11 +473,14 @@ export function calculateForecastedToBudget(
         // Convert next_date from integer to string format
         const nextDateStr = formatDateInt(s.next_date);
 
-        // Check if schedule has transactions
-        const hasTrans = scheduleHasTransactions(s.id, nextDateStr);
+        // Check if schedule is one-time (no frequency)
+        const isOneTime = !dateConfig.frequency;
 
-        // Get schedule status
-        const status = getScheduleStatus(
+        // Check if schedule has transactions
+        const hasTrans = scheduleHasTransactions(s.id, nextDateStr, isOneTime);
+
+        // Get schedule status using the shared function
+        const status = getStatus(
           nextDateStr,
           Boolean(s.completed),
           hasTrans,
@@ -515,11 +502,12 @@ export function calculateForecastedToBudget(
         });
 
         // Filter out occurrences that are in the past (already happened)
-        // Include today since schedules due today should be counted
+        // If the schedule is paid, exclude today's occurrence since it's already accounted for
+        // Otherwise include today since schedules due today should be counted
         const today = monthUtils.currentDay();
         occurrences = occurrences.filter(occ => {
           const occDate = monthUtils.dayFromDate(occ);
-          return occDate >= today;
+          return status === 'paid' ? occDate > today : occDate >= today;
         });
 
         // Add future occurrences to the total expected income
