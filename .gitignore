@@ -63,3 +63,4 @@ build/
 
 # .d.ts files aren't type-checked with skipLibCheck set to true
 *.d.ts
+build-release/
