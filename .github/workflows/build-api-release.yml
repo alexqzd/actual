@@ -1,0 +1,60 @@
+name: Build API Release
+
+on:
+  push:
+    tags:
+      - 'v*-forecast.*'  # Triggers on tags like v25.10.0-forecast.01
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build API release package
+        run: chmod +x ./scripts/build-api-release.sh && ./scripts/build-api-release.sh
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build-release/actual-api-*.tgz
+          body: |
+            ## Actual API Release
+
+            Custom build of `@actual-app/api` with income forecast feature.
+
+            ### Installation
+
+            ```json
+            {
+              "dependencies": {
+                "@actual-app/api": "https://github.com/alexqzd/actual/releases/download/${{ github.ref_name }}/actual-api-25.10.0.tgz"
+              }
+            }
+            ```
+
+            ### Changes
+
+            - ✨ Income forecast feature (`expectedToBudget` field)
+            - 📊 Schedule-based income predictions
+            - 🔄 Based on Actual Budget v25.10.0
+
+            See [forecast implementation](https://github.com/alexqzd/actual/tree/${{ github.ref_name }}/packages/loot-core/src/server/budget/forecast.ts) for details.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
