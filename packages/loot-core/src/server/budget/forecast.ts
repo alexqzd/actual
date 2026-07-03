@@ -1,30 +1,30 @@
 // @ts-strict-ignore
 import * as d from 'date-fns';
 
-import { logger } from '../../platform/server/log';
-import * as monthUtils from '../../shared/months';
-import { monthFromDate } from '../../shared/months';
+import { logger } from '#platform/server/log';
+import * as db from '#server/db';
+import { Schedule as RSchedule } from '#server/util/rschedule';
+import * as monthUtils from '#shared/months';
+import { monthFromDate } from '#shared/months';
 import {
   extractScheduleConds,
   getDateWithSkippedWeekend,
   getStatus,
   recurConfigToRSchedule,
-} from '../../shared/schedules';
-import { ScheduleEntity } from '../../types/models';
-import * as db from '../db';
-import { Schedule as RSchedule } from '../util/rschedule';
+} from '#shared/schedules';
+import type { ScheduleEntity } from '#types/models';
 
 /**
  * Schedule data returned from the database query
  */
-interface ScheduleQueryResult {
+type ScheduleQueryResult = {
   id: string;
   rule: string;
   completed: number;
   next_date: number | string;
   conditions: string | null;
   actions: string | null;
-}
+};
 
 /**
  * Convert a date from integer format (YYYYMMDD) to string format (YYYY-MM-DD)
@@ -44,7 +44,7 @@ function getScheduleOccurrencesUpToMonth({
   const config = s._date;
 
   // If the frequency is undefined, we assume it's a one-time schedule
-  if (!config.frequency) {
+  if (typeof config === 'string' || !config.frequency) {
     // If one-time schedule, config IS the date string (not an object)
     try {
       // For one-time schedules, config is directly the date string
@@ -142,7 +142,7 @@ function getScheduleOccurrencesInMonth({
   const config = s._date;
 
   // If the frequency is undefined, we assume it's a one-time schedule
-  if (!config.frequency) {
+  if (typeof config === 'string' || !config.frequency) {
     // If one-time schedule, config IS the date string (not an object)
     try {
       // For one-time schedules, config is directly the date string
@@ -179,7 +179,10 @@ function getScheduleOccurrencesInMonth({
       }
       return [];
     } catch (err) {
-      logger.error('[FORECAST] Error parsing one-time schedule date (inMonth):', err);
+      logger.error(
+        '[FORECAST] Error parsing one-time schedule date (inMonth):',
+        err,
+      );
       return [];
     }
   }
@@ -234,9 +237,7 @@ function scheduleHasTransactions(
   try {
     // For one-time schedules, look for exact date match
     // For recurring schedules, look within 2 days before the scheduled date
-    const dateFilter = isOneTime
-      ? nextDate
-      : monthUtils.subDays(nextDate, 2);
+    const dateFilter = isOneTime ? nextDate : monthUtils.subDays(nextDate, 2);
 
     // Convert to integer format for SQLite comparison (dates stored as INTEGER)
     const dateFilterInt = dateStringToInt(dateFilter);
@@ -261,14 +262,14 @@ function scheduleHasTransactions(
 /**
  * Schedule detail for UI display
  */
-export interface ForecastedScheduleDetail {
+export type ForecastedScheduleDetail = {
   id: string;
   name: string;
   amount: number;
   occurrences: number;
   total: number;
   status: string;
-}
+};
 
 /**
  * Get detailed schedule information for the forecasted "to budget" calculation
@@ -348,11 +349,7 @@ export function getSchedulesForForecastedToBudget(
         const hasTrans = scheduleHasTransactions(s.id, nextDateStr, isOneTime);
 
         // Get schedule status using the shared function
-        const status = getStatus(
-          nextDateStr,
-          Boolean(s.completed),
-          hasTrans,
-        );
+        const status = getStatus(nextDateStr, Boolean(s.completed), hasTrans);
 
         const payeeName = payeeId ? payeeMap.get(payeeId) : null;
         const displayName = s.schedule_name || payeeName || 'Unknown';
@@ -389,10 +386,10 @@ export function getSchedulesForForecastedToBudget(
             scheduleDetails.push({
               id: s.id,
               name: displayName,
-              amount: amount,
+              amount,
               occurrences: occurrenceCount,
               total: amount * occurrenceCount,
-              status: status,
+              status,
             });
           }
         }
@@ -480,11 +477,7 @@ export function calculateForecastedToBudget(
         const hasTrans = scheduleHasTransactions(s.id, nextDateStr, isOneTime);
 
         // Get schedule status using the shared function
-        const status = getStatus(
-          nextDateStr,
-          Boolean(s.completed),
-          hasTrans,
-        );
+        const status = getStatus(nextDateStr, Boolean(s.completed), hasTrans);
 
         // Create schedule entity with date config for occurrence calculation
         const scheduleWithDate = {

@@ -38,6 +38,7 @@ export type Spreadsheets = {
     'buffered-auto': number;
     'buffered-selected': number;
     'to-budget': number | null;
+    'forecasted-to-budget': number; // CUSTOM: Forecast Budget Feature
     'from-last-month': number;
     'total-budgeted': number;
     'total-income': number;

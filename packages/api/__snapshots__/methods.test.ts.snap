@@ -17,5 +17,6 @@ exports[`API setup and teardown > successfully loads budget 1`] = `
   "2017-10",
   "2017-11",
   "2017-12",
+  "2018-01",
 ]
 `;

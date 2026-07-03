@@ -12,9 +12,9 @@ import { useContextMenu } from '#hooks/useContextMenu';
 import { useFormat } from '#hooks/useFormat';
 import { envelopeBudget } from '#spreadsheet/bindings';
 
+import { ForecastedToBudgetAmount } from './ForecastedToBudgetAmount';
 import { ToBudgetAmount } from './ToBudgetAmount';
 import { ToBudgetMenu } from './ToBudgetMenu';
-import { ForecastedToBudgetAmount } from './ForecastedToBudgetAmount';
 
 type ToBudgetProps = {
   month: string;
@@ -63,27 +63,29 @@ export function ToBudget({
     asContextMenu,
   } = useContextMenu();
 
-  const showToBudget = availableValue >= 0 || !isCollapsed;
-  const showForecastedToBudget = availableValue < 0;
+  const showToBudget = (availableValue ?? 0) >= 0 || !isCollapsed;
+  const showForecastedToBudget = (availableValue ?? 0) < 0;
 
   return (
     <>
       <View ref={triggerRef}>
         {showToBudget && (
-        <ToBudgetAmount
-          onClick={() => {
-            resetPosition();
-            setMenuOpen(true);
-          }}
-          prevMonthName={prevMonthName}
-          style={style}
-          amountStyle={amountStyle}
-          isTotalsListTooltipDisabled={!isCollapsed || menuOpen}
-          onContextMenu={handleContextMenu}
-        />
+          <ToBudgetAmount
+            onClick={() => {
+              resetPosition();
+              setMenuOpen(true);
+            }}
+            prevMonthName={prevMonthName}
+            style={style}
+            amountStyle={amountStyle}
+            isTotalsListTooltipDisabled={!isCollapsed || menuOpen}
+            onContextMenu={handleContextMenu}
+          />
         )}
 
-        {showToBudget && showForecastedToBudget && <View style={{ height: 8 }} />}
+        {showToBudget && showForecastedToBudget && (
+          <View style={{ height: 8 }} />
+        )}
 
         {showForecastedToBudget && (
           <ForecastedToBudgetAmount
@@ -91,7 +93,10 @@ export function ToBudget({
             prevMonthName={prevMonthName}
             style={style}
             amountStyle={amountStyle}
-            onClick={() => setMenuOpen('actions')}
+            onClick={() => {
+              resetPosition();
+              setMenuOpen(true);
+            }}
             isTotalsListTooltipDisabled={!isCollapsed || menuOpen}
           />
         )}

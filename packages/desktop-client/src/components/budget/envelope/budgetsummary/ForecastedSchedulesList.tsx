@@ -1,17 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { Trans } from 'react-i18next';
 
-import { css } from '@emotion/css';
 
-import { send } from 'loot-core/platform/client/fetch';
-import { type ForecastedScheduleDetail } from 'loot-core/server/budget/forecast';
+import { Text } from '@actual-app/components/text';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
+import { send } from '@actual-app/core/platform/client/connection';
+import { type ForecastedScheduleDetail } from '@actual-app/core/server/budget/forecast';
 
-import { styles } from '../../../../../../component-library/src/styles';
-import { theme } from '../../../../../../component-library/src/theme';
-import { Block } from '../../../../../../component-library/src/Block';
-import { Text } from '../../../../../../component-library/src/Text';
-import { View } from '../../../../../../component-library/src/View';
-import { PrivacyFilter } from '../../../PrivacyFilter';
-import { useFormat } from '../../../../../../desktop-client/src/hooks/useFormat';
+import { PrivacyFilter } from '#components/PrivacyFilter';
+import { useFormat } from '#hooks/useFormat';
 
 type ForecastedSchedulesListProps = {
   month: string;
@@ -41,7 +39,6 @@ export function ForecastedSchedulesList({
     fetchSchedules();
   }, [month]);
 
-
   if (isLoading) {
     return (
       <View
@@ -65,9 +62,9 @@ export function ForecastedSchedulesList({
           paddingLeft: 20,
         }}
       >
-        <Text style={{ color: theme.formInputTextPlaceholder, fontSize: 13 }}>
+        <Text style={{ color: theme.formInputTextPlaceholder, fontSize: 13 }}><Trans>
           No scheduled income found
-        </Text>
+        </Trans></Text>
       </View>
     );
   }
