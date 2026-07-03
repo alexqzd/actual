@@ -1,6 +1,6 @@
 {
   "name": "@actual-app/sync-server",
-  "version": "26.5.0",
+  "version": "26.5.1",
   "description": "actual syncing server",
   "license": "MIT",
   "repository": {
@@ -99,6 +99,7 @@
     "migrate": "^2.1.0",
     "openid-client": "^5.7.1",
     "pluggy-sdk": "^0.83.0",
+    "uuid": "^13.0.0",
     "winston": "^3.19.0"
   },
   "devDependencies": {
