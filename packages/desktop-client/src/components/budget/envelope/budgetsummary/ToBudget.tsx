@@ -135,7 +135,7 @@ export function ToBudget({
           )}
           {menuStep === 'transfer' && (
             <TransferMenu
-              initialAmount={availableValue ?? undefined}
+              initialAmount={availableValue}
               onClose={() => setMenuOpen(false)}
               onSubmit={(amount, categoryId) => {
                 onBudgetAction(month, 'transfer-available', {
@@ -148,10 +148,12 @@ export function ToBudget({
           {menuStep === 'cover' && (
             <CoverMenu
               showToBeBudgeted={false}
+              initialAmount={availableValue}
               onClose={() => setMenuOpen(false)}
-              onSubmit={categoryId => {
+              onSubmit={(amount, categoryId) => {
                 onBudgetAction(month, 'cover-overbudgeted', {
                   category: categoryId,
+                  amount,
                 });
               }}
             />
