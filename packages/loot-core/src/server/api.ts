@@ -38,6 +38,7 @@ import {
 } from './api-models';
 import type { AmountOPType, APIScheduleEntity } from './api-models';
 import { aqlQuery } from './aql';
+import { isTrackingBudget } from './budget/actions';
 import { getSchedulesForForecastedToBudget } from './budget/forecast';
 import * as cloudStorage from './cloud-storage';
 import type { RemoteFile } from './cloud-storage';
@@ -399,6 +400,23 @@ handlers['api/budget-month'] = async function ({ month }) {
 
     categoryGroups: groups.map(group => {
       if (group.is_income) {
+        if (isTrackingBudget()) {
+          return {
+            ...categoryGroupModel.toExternal(group),
+            budgeted: value(`group-budget-${group.id}`),
+            received: value(`group-sum-amount-${group.id}`),
+            balance: value(`group-leftover-${group.id}`),
+
+            categories: group.categories.map(cat => ({
+              ...categoryModel.toExternal(cat),
+              budgeted: value(`budget-${cat.id}`),
+              received: value(`sum-amount-${cat.id}`),
+              balance: value(`leftover-${cat.id}`),
+              carryover: value(`carryover-${cat.id}`),
+            })),
+          };
+        }
+
         return {
           ...categoryGroupModel.toExternal(group),
           received: value('total-income'),
@@ -636,17 +654,20 @@ handlers['api/account-balance'] = withMutation(async function ({
 
 handlers['api/categories-get'] = async function ({
   grouped,
-}: { grouped? } = {}) {
+  hidden,
+}: { grouped?: boolean; hidden?: boolean } = {}) {
   checkFileOpen();
-  const result = await handlers['get-categories']();
+  const result = await handlers['get-categories']({ hidden });
   return grouped
     ? result.grouped.map(group => categoryGroupModel.toExternal(group))
     : result.list.map(category => categoryModel.toExternal(category));
 };
 
-handlers['api/category-groups-get'] = async function () {
+handlers['api/category-groups-get'] = async function ({
+  hidden,
+}: { hidden?: boolean } = {}) {
   checkFileOpen();
-  const groups = await handlers['get-category-groups']();
+  const groups = await handlers['get-category-groups']({ hidden });
   return groups.map(group => categoryGroupModel.toExternal(group));
 };
 
@@ -711,6 +732,16 @@ handlers['api/category-delete'] = withMutation(async function ({
     id,
     transferId: transferCategoryId,
   });
+});
+
+handlers['api/note-get'] = async function ({ id }) {
+  checkFileOpen();
+  return handlers['notes-get']({ id });
+};
+
+handlers['api/note-update'] = withMutation(async function ({ id, note }) {
+  checkFileOpen();
+  return handlers['notes-save']({ id, note });
 });
 
 handlers['api/common-payees-get'] = async function () {

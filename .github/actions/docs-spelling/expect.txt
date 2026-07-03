@@ -11,6 +11,7 @@ ANZ
 aql
 AUR
 Authentik
+autogen
 AVERAGEA
 BANKA
 BANKINTER
@@ -44,6 +45,7 @@ CLP
 CMCIFRPAXXX
 COBADEFF
 CODEOWNERS
+Codespaces
 COEP
 commerzbank
 Copiar
@@ -146,8 +148,6 @@ pluggyai
 Poste
 PPABPLPK
 prefs
-Primoco
-Priotecs
 proactively
 Qatari
 QNTOFRP
@@ -179,7 +179,6 @@ SWEDBANK
 SWEDNOKK
 Synology
 systemctl
-tada
 taskbar
 templating
 THB
