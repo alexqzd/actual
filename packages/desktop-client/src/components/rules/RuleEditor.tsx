@@ -17,7 +17,6 @@ import {
   SvgSubtract,
 } from '@actual-app/components/icons/v0';
 import {
-  SvgAlignLeft,
   SvgCode,
   SvgInformationOutline,
 } from '@actual-app/components/icons/v1';
@@ -49,15 +48,12 @@ import {
   getValidOps,
 } from 'loot-core/shared/rules';
 import {
-  integerToCurrency,
-  integerToAmount,
-  amountToInteger,
-} from 'loot-core/shared/util';
-import {
   type RuleEntity,
   type NewRuleEntity,
   type RuleActionEntity,
 } from 'loot-core/types/models';
+
+import { FormulaActionEditor } from './FormulaActionEditor';
 
 import { StatusBadge } from '@desktop-client/components/schedules/StatusBadge';
 import { SimpleTransactionsTable } from '@desktop-client/components/transactions/SimpleTransactionsTable';
@@ -66,6 +62,7 @@ import { DisplayId } from '@desktop-client/components/util/DisplayId';
 import { GenericInput } from '@desktop-client/components/util/GenericInput';
 import { useDateFormat } from '@desktop-client/hooks/useDateFormat';
 import { useFeatureFlag } from '@desktop-client/hooks/useFeatureFlag';
+import { useFormat } from '@desktop-client/hooks/useFormat';
 import {
   useSchedules,
   type ScheduleStatusType,
@@ -74,6 +71,7 @@ import {
   useSelected,
   SelectedProvider,
 } from '@desktop-client/hooks/useSelected';
+import { addNotification } from '@desktop-client/notifications/notificationsSlice';
 import { getPayees } from '@desktop-client/payees/payeesSlice';
 import { aqlQuery } from '@desktop-client/queries/aqlQuery';
 import { useDispatch } from '@desktop-client/redux';
@@ -360,14 +358,15 @@ function ConditionEditor({
   );
 }
 
-function formatAmount(amount) {
+function formatAmount(amount, format) {
   if (!amount) {
-    return integerToCurrency(0);
+    return format(0, 'financial');
   } else if (typeof amount === 'number') {
-    return integerToCurrency(amount);
+    return format(amount, 'financial');
   } else {
-    return `${integerToCurrency(amount.num1)} to ${integerToCurrency(
+    return `${format(amount.num1, 'financial')} to ${format(
       amount.num2,
+      'financial',
     )}`;
   }
 }
@@ -375,6 +374,7 @@ function formatAmount(amount) {
 function ScheduleDescription({ id }) {
   const { isNarrowWidth } = useResponsive();
   const dateFormat = useDateFormat() || 'MM/dd/yyyy';
+  const format = useFormat();
   const scheduleQuery = useMemo(
     () => q('schedules').filter({ id }).select('*'),
     [id],
@@ -423,7 +423,7 @@ function ScheduleDescription({ id }) {
 
         <Text style={{ flexShrink: 0 }}>
           <Text> — </Text>
-          <Trans>Amount:</Trans> {formatAmount(schedule._amount)}
+          <Trans>Amount:</Trans> {formatAmount(schedule._amount, format)}
         </Text>
 
         <Text style={{ flexShrink: 0 }}>
@@ -468,7 +468,11 @@ type ActionEditorProps = {
     inputKey?: string;
   };
   editorStyle: CSSProperties;
-  onChange: (name: string, value: unknown) => void;
+  onChange: (
+    name: string,
+    value: unknown,
+    extraOptions?: Record<string, unknown>,
+  ) => void;
   onDelete: () => void;
   onAdd: () => void;
 };
@@ -492,21 +496,27 @@ function ActionEditor({
   } = action;
 
   const templated = options?.template !== undefined;
+  const hasFormula = options?.formula !== undefined;
 
   // Even if the feature flag is disabled, we still want to be able to turn off templating
   const actionTemplating = useFeatureFlag('actionTemplating');
+  const formulaMode = useFeatureFlag('formulaMode');
   const isTemplatingEnabled = actionTemplating || templated;
+  const isFormulaEnabled = formulaMode || hasFormula;
 
   const fields = (
     options?.splitIndex ? getSplitActionFields() : getActionFields()
-  ).filter(([s]) => actionTemplating || !s.includes('_name') || field === s);
+  ).filter(
+    ([s]) =>
+      actionTemplating || formulaMode || !s.includes('_name') || field === s,
+  );
 
   return (
     <Editor style={editorStyle} error={error}>
       {op === 'set' ? (
         <>
           <OpSelect
-            ops={['set', 'prepend-notes', 'append-notes']}
+            ops={['set', 'prepend-notes', 'append-notes', 'delete-transaction']}
             value={op}
             onChange={onChange}
           />
@@ -519,39 +529,94 @@ function ActionEditor({
           />
 
           <View style={{ flex: 1 }}>
-            {/* @ts-expect-error fix this */}
-            <GenericInput
-              key={inputKey}
-              field={field}
-              type={templated ? 'string' : type}
-              op={op}
-              value={options?.template ?? value}
-              onChange={v => onChange('value', v)}
-              numberFormatType="currency"
-            />
+            <View style={{ flex: 1 }}>
+              {hasFormula ? (
+                <FormulaActionEditor
+                  value={options?.formula || ''}
+                  onChange={v => onChange('formula', v, { formula: true })}
+                />
+              ) : (
+                // @ts-expect-error fix this
+                <GenericInput
+                  key={inputKey}
+                  field={field}
+                  type={templated ? 'string' : type}
+                  op={op}
+                  value={options?.template ?? value}
+                  onChange={v => onChange('value', v)}
+                  numberFormatType="currency"
+                  inputStyle={{ height: 30 }}
+                />
+              )}
+            </View>
           </View>
           {/*Due to that these fields have id's as value it is not helpful to have templating here*/}
+          {isFormulaEnabled &&
+            ['payee', 'category', 'account'].indexOf(field) === -1 && (
+              <Button
+                variant="bare"
+                isDisabled={templated}
+                style={{
+                  padding: 5,
+                  backgroundColor: hasFormula
+                    ? theme.buttonPrimaryBackground
+                    : undefined,
+                  height: 24,
+                  width: 24,
+                }}
+                aria-label={
+                  hasFormula ? t('Disable formula') : t('Enable formula')
+                }
+                onPress={() =>
+                  hasFormula
+                    ? onChange('formula', undefined)
+                    : onChange('formula', options.formula || value || '=')
+                }
+              >
+                {hasFormula ? (
+                  <span
+                    style={{
+                      fontSize: 14,
+                      fontFamily: 'serif',
+                      textAlign: 'center',
+                    }}
+                  >
+                    ƒ
+                  </span>
+                ) : hasFormula ? (
+                  <SvgCode
+                    style={{ width: 12, height: 12, color: 'inherit' }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      fontSize: 14,
+                      fontFamily: 'serif',
+                      textAlign: 'center',
+                    }}
+                  >
+                    ƒ
+                  </span>
+                )}
+              </Button>
+            )}
           {isTemplatingEnabled &&
             ['payee', 'category', 'account'].indexOf(field) === -1 && (
               <Button
                 variant="bare"
+                isDisabled={hasFormula}
                 style={{
                   padding: 5,
+                  backgroundColor: templated
+                    ? theme.buttonPrimaryBackground
+                    : undefined,
                 }}
                 aria-label={
                   templated ? t('Disable templating') : t('Enable templating')
                 }
                 onPress={() => onChange('template', !templated)}
               >
-                {templated ? (
-                  <SvgCode
-                    style={{ width: 12, height: 12, color: 'inherit' }}
-                  />
-                ) : (
-                  <SvgAlignLeft
-                    style={{ width: 12, height: 12, color: 'inherit' }}
-                  />
-                )}
+                <SvgCode style={{ width: 12, height: 12, color: 'inherit' }} />
               </Button>
             )}
         </>
@@ -610,7 +675,7 @@ function ActionEditor({
       ) : op === 'prepend-notes' || op === 'append-notes' ? (
         <>
           <OpSelect
-            ops={['set', 'prepend-notes', 'append-notes']}
+            ops={['set', 'prepend-notes', 'append-notes', 'delete-transaction']}
             value={op}
             onChange={onChange}
           />
@@ -627,17 +692,27 @@ function ActionEditor({
             />
           </View>
         </>
+      ) : op === 'delete-transaction' ? (
+        <OpSelect
+          ops={['set', 'prepend-notes', 'append-notes', 'delete-transaction']}
+          value={op}
+          onChange={onChange}
+        />
       ) : null}
 
-      <Stack direction="row" style={{ flexShrink: 0 }}>
-        <EditorButtons
-          onAdd={onAdd}
-          onDelete={
-            (op === 'set' || op === 'prepend-notes' || op === 'append-notes') &&
-            onDelete
-          }
-        />
-      </Stack>
+      {op !== 'delete-transaction' && (
+        <Stack direction="row" style={{ flexShrink: 0 }}>
+          <EditorButtons
+            onAdd={onAdd}
+            onDelete={
+              (op === 'set' ||
+                op === 'prepend-notes' ||
+                op === 'append-notes') &&
+              onDelete
+            }
+          />
+        </Stack>
+      )}
     </Editor>
   );
 }
@@ -824,13 +899,13 @@ function ConditionsList({
             // behavior and we can probably get rid of `makeValue`
             return makeValue(
               {
-                num1: amountToInteger(cond.value),
-                num2: amountToInteger(cond.value),
+                num1: cond.value,
+                num2: cond.value,
               },
               { ...cond, op: value },
             );
           } else if (cond.op === 'isbetween' && op !== 'isbetween') {
-            return makeValue(integerToAmount(cond.value.num1 || 0), {
+            return makeValue(cond.value.num1 || 0, {
               ...cond,
               op: value,
             });
@@ -1030,7 +1105,7 @@ export function RuleEditor({
     setActionSplits(copy);
   }
 
-  function onChangeAction(action, field, value) {
+  function onChangeAction(action, field, value, extraOptions?) {
     setActionSplits(
       actionSplits.map(({ id, actions }) => ({
         id,
@@ -1046,19 +1121,42 @@ export function RuleEditor({
               a.options = { ...a.options, template: undefined };
               if (a.type !== 'string') a.value = null;
             }
+          } else if (field === 'formula') {
+            if (value === undefined) {
+              // Disable formula mode
+              a.options = { ...a.options, formula: undefined };
+              if (a.type !== 'string') a.value = null;
+            } else {
+              // Keep formula mode; allow empty string while editing
+              a.options = { ...a.options, formula: String(value) };
+            }
           } else {
-            a[field] = value;
-            if (a.options?.template !== undefined) {
+            // Handle formula updates
+            if (extraOptions?.formula && a.options?.formula !== undefined) {
+              // Only update formula, not the value field
+              a.options = {
+                ...a.options,
+                formula: value,
+              };
+            } else if (a.options?.template !== undefined) {
+              // Only update template, not the value field
               a.options = {
                 ...a.options,
                 template: value,
               };
+            } else {
+              // Normal value update
+              a[field] = value;
             }
 
             if (field === 'field') {
               a.type = FIELD_TYPES.get(a.field);
               a.value = null;
-              a.options = { ...a.options, template: undefined };
+              a.options = {
+                ...a.options,
+                template: undefined,
+                formula: undefined,
+              };
               return newInput(a);
             } else if (field === 'op') {
               a.value = null;
@@ -1125,8 +1223,18 @@ export function RuleEditor({
     send('rule-apply-actions', {
       transactions: selectedTransactions,
       actions: getUnparsedActions(actionSplits),
-    }).then(() => {
+    }).then(content => {
       // This makes it refetch the transactions
+      content.errors.forEach(error => {
+        dispatch(
+          addNotification({
+            notification: {
+              type: 'error',
+              message: error,
+            },
+          }),
+        );
+      });
       setActionSplits([...actionSplits]);
     });
   }
@@ -1323,9 +1431,9 @@ export function RuleEditor({
                         <ActionEditor
                           action={action}
                           editorStyle={styles.editorPill}
-                          onChange={(name, value) => {
-                            onChangeAction(action, name, value);
-                          }}
+                          onChange={(name, value, extraOptions) =>
+                            onChangeAction(action, name, value, extraOptions)
+                          }
                           onDelete={() => onRemoveAction(action)}
                           onAdd={() =>
                             addActionToSplitAfterIndex(splitIndex, actionIndex)

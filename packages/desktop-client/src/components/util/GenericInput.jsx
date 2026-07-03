@@ -6,7 +6,6 @@ import { Input } from '@actual-app/components/input';
 import { View } from '@actual-app/components/view';
 
 import { getMonthYearFormat } from 'loot-core/shared/months';
-import { integerToAmount, amountToInteger } from 'loot-core/shared/util';
 
 import { AmountInput } from './AmountInput';
 import { PercentInput } from './PercentInput';
@@ -37,6 +36,8 @@ export function GenericInput({
   style,
   onChange,
   op = undefined,
+  options = undefined,
+  inputStyle = undefined,
 }) {
   const dispatch = useDispatch();
   const { isNarrowWidth } = useResponsive();
@@ -66,9 +67,11 @@ export function GenericInput({
       case 'currency':
         return (
           <AmountInput
-            inputRef={ref}
-            value={amountToInteger(value)}
-            onUpdate={v => onChange(integerToAmount(v))}
+            ref={ref}
+            value={value}
+            onUpdate={v => onChange(v)}
+            sign={options?.inflow || options?.outflow ? '+' : undefined}
+            inputStyle={inputStyle}
           />
         );
       case 'percentage':
@@ -77,6 +80,7 @@ export function GenericInput({
             inputRef={ref}
             value={value}
             onUpdatePercent={onChange}
+            inputStyle={inputStyle}
           />
         );
       default:
@@ -86,6 +90,7 @@ export function GenericInput({
             value={value || ''}
             placeholder={t('nothing')}
             onChangeValue={onChange}
+            style={inputStyle}
           />
         );
     }
@@ -264,7 +269,7 @@ export function GenericInput({
                 value={value}
                 dateFormat={dateFormat}
                 openOnFocus={false}
-                inputRef={ref}
+                ref={ref}
                 inputProps={{ placeholder: dateFormat.toLowerCase() }}
                 onSelect={onChange}
               />
@@ -304,6 +309,7 @@ export function GenericInput({
             value={value || ''}
             placeholder={t('nothing')}
             onChangeValue={onChange}
+            style={inputStyle}
           />
         );
       }
