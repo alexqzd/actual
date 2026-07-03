@@ -126,6 +126,7 @@ Moldovan
 murmurhash
 NETWORKDAYS
 nginx
+nodenext
 OIDC
 Okabe
 overbudgeted
@@ -133,6 +134,7 @@ overbudgeting
 oxc
 Paribas
 passwordless
+PAYPAL
 picomatch
 pluggyai
 Poste

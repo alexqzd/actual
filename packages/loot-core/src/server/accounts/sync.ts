@@ -1,38 +1,37 @@
 // @ts-strict-ignore
 import * as dateFns from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
 
-import * as asyncStorage from '../../platform/server/asyncStorage';
-import { logger } from '../../platform/server/log';
-import * as monthUtils from '../../shared/months';
-import { q } from '../../shared/query';
+import * as asyncStorage from '#platform/server/asyncStorage';
+import { logger } from '#platform/server/log';
+import { aqlQuery } from '#server/aql';
+import * as db from '#server/db';
+import { TRANSACTION_SORT_INCREMENT } from '#server/db/sort';
+import { runMutator } from '#server/mutators';
+import { post } from '#server/post';
+import { getServer } from '#server/server-config';
+import { batchMessages } from '#server/sync';
+import { batchUpdateTransactions } from '#server/transactions';
+import { runRules } from '#server/transactions/transaction-rules';
+import {
+  defaultMappings,
+  mappingsFromString,
+} from '#server/util/custom-sync-mapping';
+import * as monthUtils from '#shared/months';
+import { q } from '#shared/query';
 import {
   makeChild as makeChildTransaction,
   recalculateSplit,
-} from '../../shared/transactions';
+} from '#shared/transactions';
 import {
   amountToInteger,
   hasFieldsChanged,
   integerToAmount,
-} from '../../shared/util';
+} from '#shared/util';
 import type {
   AccountEntity,
   BankSyncResponse,
   TransactionEntity,
-} from '../../types/models';
-import { aqlQuery } from '../aql';
-import * as db from '../db';
-import { TRANSACTION_SORT_INCREMENT } from '../db/sort';
-import { runMutator } from '../mutators';
-import { post } from '../post';
-import { getServer } from '../server-config';
-import { batchMessages } from '../sync';
-import { batchUpdateTransactions } from '../transactions';
-import { runRules } from '../transactions/transaction-rules';
-import {
-  defaultMappings,
-  mappingsFromString,
-} from '../util/custom-sync-mapping';
+} from '#types/models';
 
 import { getStartingBalancePayee } from './payees';
 import { title } from './title';
@@ -323,7 +322,7 @@ async function resolvePayee(trans, payeeName, payeesToCreate) {
       return payee.id;
     } else {
       // Otherwise we're going to create a new one
-      const newPayee = { id: uuidv4(), name: payeeName };
+      const newPayee = { id: crypto.randomUUID(), name: payeeName };
       payeesToCreate.set(payeeName.toLowerCase(), newPayee);
       return newPayee.id;
     }
@@ -617,7 +616,7 @@ export async function reconcileTransactions(
       const { forceAddTransaction: _forceAddTransaction, ...newTrans } = trans;
       const finalTransaction = {
         ...newTrans,
-        id: uuidv4(),
+        id: crypto.randomUUID(),
         category: trans.category || null,
         cleared: trans.cleared ?? defaultCleared,
       };
@@ -881,7 +880,7 @@ export async function addTransactions(
     const trans = await runRules(originalTrans, accountsMap);
 
     const finalTransaction = {
-      id: uuidv4(),
+      id: crypto.randomUUID(),
       ...trans,
       account: acctId,
       cleared: trans.cleared != null ? trans.cleared : true,
