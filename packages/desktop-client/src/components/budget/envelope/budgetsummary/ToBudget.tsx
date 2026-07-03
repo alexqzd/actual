@@ -17,6 +17,7 @@ import { useEnvelopeSheetValue } from '@desktop-client/components/budget/envelop
 import { HoldMenu } from '@desktop-client/components/budget/envelope/HoldMenu';
 import { TransferMenu } from '@desktop-client/components/budget/envelope/TransferMenu';
 import { useContextMenu } from '@desktop-client/hooks/useContextMenu';
+import { useFormat } from '@desktop-client/hooks/useFormat';
 import { envelopeBudget } from '@desktop-client/spreadsheet/bindings';
 
 type ToBudgetProps = {
@@ -37,6 +38,7 @@ export function ToBudget({
 }: ToBudgetProps) {
   const [menuStep, _setMenuStep] = useState<string>('actions');
   const triggerRef = useRef(null);
+  const format = useFormat();
 
   const ref = useRef<HTMLSpanElement>(null);
   const setMenuStep = useCallback(
@@ -154,6 +156,7 @@ export function ToBudget({
                 onBudgetAction(month, 'cover-overbudgeted', {
                   category: categoryId,
                   amount,
+                  currencyCode: format.currency.code,
                 });
               }}
             />
