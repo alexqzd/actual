@@ -7,7 +7,7 @@ import { resolveName } from '../spreadsheet/util';
 
 import { createCategory as createCategoryFromBase } from './base';
 import { calculateForecastedToBudget } from './forecast';
-import { number, sumAmounts, flatten2, unflatten2 } from './util';
+import { flatten2, number, sumAmounts, unflatten2 } from './util';
 
 function getBlankSheet(months) {
   const blankMonth = monthUtils.prevMonth(months[0]);

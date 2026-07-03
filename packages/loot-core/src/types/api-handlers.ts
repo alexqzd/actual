@@ -19,8 +19,8 @@ import type {
   ImportTransactionEntity,
   NewRuleEntity,
   RuleEntity,
-  TransactionEntity,
   ScheduleEntity,
+  TransactionEntity,
 } from './models';
 
 export type ApiHandlers = {
