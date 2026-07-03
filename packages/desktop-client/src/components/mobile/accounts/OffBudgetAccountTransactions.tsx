@@ -49,7 +49,7 @@ function TransactionListWithPreviews() {
   } = useTransactions({
     query: transactionsQuery,
   });
-  const offBudgetAccounts = useOffBudgetAccounts();
+  const { data: offBudgetAccounts = [] } = useOffBudgetAccounts();
   const offBudgetAccountsFilter = useCallback(
     (schedule: ScheduleEntity) =>
       offBudgetAccounts.some(a => a.id === schedule._account),
@@ -82,9 +82,12 @@ function TransactionListWithPreviews() {
               name: 'scheduled-transaction-menu',
               options: {
                 transactionId: transaction.id,
-                onPost: async transactionId => {
+                onPost: async (transactionId, today = false) => {
                   const parts = transactionId.split('/');
-                  await send('schedule/post-transaction', { id: parts[1] });
+                  await send('schedule/post-transaction', {
+                    id: parts[1],
+                    today,
+                  });
                   dispatch(
                     collapseModals({
                       rootModalName: 'scheduled-transaction-menu',
