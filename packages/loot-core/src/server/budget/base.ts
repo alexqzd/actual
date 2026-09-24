@@ -10,6 +10,7 @@ import type { CategoryGroupEntity } from '#types/models';
 
 import * as budgetActions from './actions';
 import * as envelopeBudget from './envelope';
+import * as forecast from './forecast';
 import * as trackingBudget from './tracking';
 
 export function getBudgetType() {
@@ -136,18 +137,6 @@ function handleTransactionChange(transaction, changedFields) {
     sheet
       .get()
       .recompute(resolveName(sheetName, 'sum-amount-' + transaction.category));
-
-    // CUSTOM: Forecast Budget Feature
-    // If the transaction is linked to a schedule, recompute forecasted-to-budget
-    if (transaction.schedule && changedFields.has('schedule')) {
-      const { createdMonths = new Set() } = sheet.get().meta();
-      createdMonths.forEach(budgetMonth => {
-        const budgetSheetName = monthUtils.sheetForMonth(budgetMonth);
-        sheet
-          .get()
-          .recompute(resolveName(budgetSheetName, 'forecasted-to-budget'));
-      });
-    }
   }
 }
 
@@ -166,47 +155,35 @@ function handleCategoryMappingChange(months, oldValue, newValue) {
 }
 
 // CUSTOM: Forecast Budget Feature
-// Handle schedule changes and recompute forecasted-to-budget
-function handleScheduleChange(months, oldValue, newValue) {
-  const affectedFields = ['next_date', 'completed', '_amount', '_date', 'tombstone'];
-  const hasRelevantChange =
-    !oldValue ||
-    affectedFields.some(field => oldValue[field] !== newValue[field]);
+// Tables that feed the forecasted "to budget" calculation. Schedule next dates
+// live in `schedules_next_date`, amounts and dates live in the schedule's rule.
+const FORECAST_TABLES = new Set([
+  'schedules',
+  'schedules_next_date',
+  'rules',
+  'accounts',
+  'payees',
+  'categories',
+]);
 
-  if (hasRelevantChange) {
-    months.forEach(month => {
-      const sheetName = monthUtils.sheetForMonth(month);
-      sheet.get().recompute(resolveName(sheetName, 'forecasted-to-budget'));
-    });
+function affectsForecast(table, oldValue, newValue) {
+  if (FORECAST_TABLES.has(table)) {
+    return true;
   }
+  // Only transactions linked to a schedule (before or after the change)
+  // can mark an occurrence as received.
+  return (
+    table === 'transactions' &&
+    Boolean(newValue.schedule || (oldValue && oldValue.schedule))
+  );
 }
 
-// CUSTOM: Forecast Budget Feature
-// Handle rule changes for schedules and recompute forecasted-to-budget
-function handleRuleChange(months, oldValue, newValue) {
-  // Check if this rule is linked to a schedule
-  if (newValue.actions) {
-    const actions =
-      typeof newValue.actions === 'string'
-        ? JSON.parse(newValue.actions)
-        : newValue.actions;
-
-    const hasScheduleLink = actions?.some(a => a.op === 'link-schedule');
-
-    if (hasScheduleLink) {
-      // Rule is linked to a schedule, check if conditions changed
-      const hasConditionChange =
-        !oldValue ||
-        JSON.stringify(oldValue.conditions) !== JSON.stringify(newValue.conditions);
-
-      if (hasConditionChange) {
-        months.forEach(month => {
-          const sheetName = monthUtils.sheetForMonth(month);
-          sheet.get().recompute(resolveName(sheetName, 'forecasted-to-budget'));
-        });
-      }
-    }
-  }
+function recomputeForecast(months) {
+  forecast.invalidateForecastCache();
+  months.forEach(month => {
+    const sheetName = monthUtils.sheetForMonth(month);
+    sheet.get().recompute(resolveName(sheetName, 'forecasted-to-budget'));
+  });
 }
 
 function handleBudgetMonthChange(budget) {
@@ -236,6 +213,7 @@ function handleBudgetChange(budget) {
 export function triggerBudgetChanges(oldValues, newValues) {
   const { createdMonths = new Set() } = sheet.get().meta();
   const budgetType = getBudgetType();
+  let forecastChanged = false;
   sheet.startTransaction();
 
   try {
@@ -290,15 +268,21 @@ export function triggerBudgetChanges(oldValues, newValues) {
           }
         } else if (table === 'accounts') {
           handleAccountChange(createdMonths, oldValue, newValue);
-        } else if (table === 'schedules') {
-          // CUSTOM: Forecast Budget Feature
-          handleScheduleChange(createdMonths, oldValue, newValue);
-        } else if (table === 'rules') {
-          // CUSTOM: Forecast Budget Feature
-          handleRuleChange(createdMonths, oldValue, newValue);
+        }
+
+        // CUSTOM: Forecast Budget Feature
+        if (
+          budgetType === 'envelope' &&
+          affectsForecast(table, oldValue, newValue)
+        ) {
+          forecastChanged = true;
         }
       });
     });
+
+    if (forecastChanged) {
+      recomputeForecast(createdMonths);
+    }
   } finally {
     sheet.endTransaction();
   }

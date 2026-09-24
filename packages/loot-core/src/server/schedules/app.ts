@@ -763,10 +763,12 @@ export async function advanceSchedulesService(syncSuccess) {
             // find the rule
           }
         } else {
-          // Complete one-time schedules that have been paid
-          await updateSchedule({
-            schedule: { id: schedule.id, completed: true },
-          });
+          if (schedule._date < currentDay()) {
+            // Complete any single schedules
+            await updateSchedule({
+              schedule: { id: schedule.id, completed: true },
+            });
+          }
         }
       }
     }

@@ -17,6 +17,7 @@ import * as budget from './base';
 import * as cleanupGroupActions from './cleanup-groups';
 import * as cleanupActions from './cleanup-template';
 import { storeNoteCleanups } from './cleanup-template-notes';
+import { getSchedulesForForecastedToBudget } from './forecast';
 import * as goalActions from './goal-template';
 import { sortCategories } from './sort-categories';
 import * as goalNoteActions from './template-notes';
@@ -47,6 +48,8 @@ export type BudgetHandlers = {
   'budget/reset-income-carryover': typeof actions.resetIncomeCarryover;
   'get-categories': typeof getCategories;
   'get-budget-bounds': typeof getBudgetBounds;
+  // CUSTOM: Forecast Budget Feature
+  'budget/get-forecasted-schedules': typeof getForecastedSchedules;
   'envelope-budget-month': typeof envelopeBudgetMonth;
   'tracking-budget-month': typeof trackingBudgetMonth;
   'category-create': typeof createCategory;
@@ -144,6 +147,7 @@ app.method(
 );
 app.method('get-categories', getCategories);
 app.method('get-budget-bounds', getBudgetBounds);
+app.method('budget/get-forecasted-schedules', getForecastedSchedules);
 app.method('envelope-budget-month', envelopeBudgetMonth);
 app.method('tracking-budget-month', trackingBudgetMonth);
 app.method('category-create', mutator(undoable(createCategory)));
@@ -200,6 +204,11 @@ async function getCategories({ hidden }: { hidden?: boolean } = {}) {
     grouped: categoryGroups,
     list,
   };
+}
+
+// CUSTOM: Forecast Budget Feature
+async function getForecastedSchedules({ month }: { month: string }) {
+  return getSchedulesForForecastedToBudget(month);
 }
 
 async function getBudgetBounds() {
