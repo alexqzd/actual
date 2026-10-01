@@ -90,14 +90,12 @@ export function ToBudget({
         {showForecastedToBudget && (
           <ForecastedToBudgetAmount
             month={month}
-            prevMonthName={prevMonthName}
             style={style}
             amountStyle={amountStyle}
             onClick={() => {
               resetPosition();
               setMenuOpen(true);
             }}
-            isTotalsListTooltipDisabled={!isCollapsed || menuOpen}
           />
         )}
       </View>

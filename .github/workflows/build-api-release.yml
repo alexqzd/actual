@@ -17,18 +17,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: 'yarn'
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Build API release package
         run: chmod +x ./scripts/build-api-release.sh && ./scripts/build-api-release.sh
 
-      - name: Get version from tag
+      - name: Get API version
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: echo "API_VERSION=$(node -p "require('./packages/api/package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Upload to release
         uses: softprops/action-gh-release@v1
@@ -44,7 +44,7 @@ jobs:
             ```json
             {
               "dependencies": {
-                "@actual-app/api": "https://github.com/alexqzd/actual/releases/download/${{ github.ref_name }}/actual-api-25.10.0.tgz"
+                "@actual-app/api": "https://github.com/alexqzd/actual/releases/download/${{ github.ref_name }}/actual-api-${{ steps.get_version.outputs.API_VERSION }}.tgz"
               }
             }
             ```
@@ -53,7 +53,7 @@ jobs:
 
             - ✨ Income forecast feature (`expectedToBudget` field)
             - 📊 Schedule-based income predictions
-            - 🔄 Based on Actual Budget v25.10.0
+            - 🔄 Based on Actual Budget v${{ steps.get_version.outputs.API_VERSION }}
 
             See [forecast implementation](https://github.com/alexqzd/actual/tree/${{ github.ref_name }}/packages/loot-core/src/server/budget/forecast.ts) for details.
         env:

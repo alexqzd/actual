@@ -1,54 +1,49 @@
-import React, { type CSSProperties, useState } from 'react';
+// CUSTOM: Forecast Budget Feature
+import React, { useState } from 'react';
+import type { CSSProperties } from 'react';
+import { Trans } from 'react-i18next';
 
+import { Block } from '@actual-app/components/block';
+import { SvgExpandArrow } from '@actual-app/components/icons/v0';
+import { styles } from '@actual-app/components/styles';
+import { theme } from '@actual-app/components/theme';
+import { View } from '@actual-app/components/view';
 import { css } from '@emotion/css';
 
-import { SvgExpandArrow } from '@actual-app/components/icons/v0';
+import { useEnvelopeSheetValue } from '#components/budget/envelope/EnvelopeBudgetComponents';
+import { FinancialText } from '#components/FinancialText';
+import { PrivacyFilter } from '#components/PrivacyFilter';
+import { useFormat } from '#hooks/useFormat';
+import { envelopeBudget } from '#spreadsheet/bindings';
 
-import { envelopeBudget } from '../../../../../../desktop-client/src/spreadsheet/bindings';
-
-import { styles } from '../../../../../../component-library/src/styles';
-import { theme } from '../../../../../../component-library/src/theme';
-import { Block } from '../../../../../../component-library/src/Block';
-import { View } from '../../../../../../component-library/src/View';
-import { PrivacyFilter } from '../../../PrivacyFilter';
-import { useFormat } from '../../../../../../desktop-client/src/hooks/useFormat';
-
-import { useEnvelopeSheetValue } from '../EnvelopeBudgetComponents';
 import { ForecastedSchedulesList } from './ForecastedSchedulesList';
 
 type ForecastedToBudgetAmountProps = {
   month: string;
-  prevMonthName: string;
   style?: CSSProperties;
   amountStyle?: CSSProperties;
-  onClick: () => void;
-  isTotalsListTooltipDisabled?: boolean;
+  onClick?: () => void;
 };
 
 export function ForecastedToBudgetAmount({
   month,
-  prevMonthName,
   style,
   amountStyle,
   onClick,
-  isTotalsListTooltipDisabled = false,
 }: ForecastedToBudgetAmountProps) {
   const format = useFormat();
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // CUSTOM: Forecast Budget Feature
-  // Get forecasted to-budget value from spreadsheet
   const forecastValue = useEnvelopeSheetValue({
-    name: envelopeBudget.forecastedToBudget as any,
+    name: envelopeBudget.forecastedToBudget,
     value: 0,
   });
 
-  const num = isNaN(forecastValue) ? 0 : forecastValue;
+  const num =
+    typeof forecastValue === 'number' && !isNaN(forecastValue)
+      ? forecastValue
+      : 0;
   const isNegative = num < 0;
-
-  const handleToggleExpand = () => {
-    setIsExpanded(!isExpanded);
-  };
 
   return (
     <View>
@@ -60,7 +55,7 @@ export function ForecastedToBudgetAmount({
             cursor: 'pointer',
             userSelect: 'none',
           }}
-          onClick={handleToggleExpand}
+          onClick={() => setIsExpanded(!isExpanded)}
         >
           <SvgExpandArrow
             width={8}
@@ -72,7 +67,9 @@ export function ForecastedToBudgetAmount({
               transform: isExpanded ? '' : 'rotate(-90deg)',
             }}
           />
-          <Block>Expected to budget:</Block>
+          <Block>
+            <Trans>Expected to budget:</Trans>
+          </Block>
         </View>
         <PrivacyFilter>
           <Block
@@ -81,14 +78,16 @@ export function ForecastedToBudgetAmount({
               {
                 fontWeight: 400,
                 userSelect: 'none',
-                color: isNegative ? theme.errorText : theme.formInputTextPlaceholder,
+                color: isNegative
+                  ? theme.errorText
+                  : theme.formInputTextPlaceholder,
                 ...amountStyle,
               },
             ])}
             onClick={onClick}
             data-testid="expected-to-budget"
           >
-            {format(num, 'financial')}
+            <FinancialText>{format(num, 'financial')}</FinancialText>
           </Block>
         </PrivacyFilter>
       </View>

@@ -185,15 +185,11 @@ export function EnvelopeBudgetSummaryModal({
             {showForecastedToBudgetAmount && (
               <ForecastedToBudgetAmount
                 month={month}
-                prevMonthName={prevMonthName}
                 style={{
                   ...styles.mediumText,
                   marginTop: 15,
                   marginBottom: 15,
                 }}
-                amountStyle={styles.underlinedText}
-                onClick={() => {}}
-                isTotalsListTooltipDisabled
               />
             )}
           </SheetNameProvider>
