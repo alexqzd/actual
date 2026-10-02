@@ -18,6 +18,7 @@ node_modules
 packages/api/app/bundle.api.js
 packages/api/app/stats.json
 packages/api/dist
+packages/api/e2e/consumer/dist
 packages/api/@types
 packages/api/test-results
 packages/api/playwright-report
@@ -68,11 +69,22 @@ bundle.mobile.js.map
 .claude/worktrees/*
 .claude/settings.local.json
 
+# Impeccable skill: payload is installed locally per developer, only the
+# defensive hook wiring and design context files are committed
+.impeccable/config.local.json
+DESIGN.json
+**/skills/impeccable/
+.cursor/agents/impeccable-*.md
+.github/agents/impeccable-*.agent.md
+
 # Misc
 .#*
 
 # Local Netlify folder
 .netlify
+
+# Personal devcontainer config
+.devcontainer/*.local
 
 # build output
 package.tgz
@@ -85,6 +97,9 @@ build/
 
 # .d.ts files aren't type-checked with skipLibCheck set to true
 *.d.ts
+# ...except hand-written ambient declarations that must be committed
+!packages/api/virtual-modules.d.ts
+!packages/loot-core/default-filesystem.d.ts
 build-release/
 
 # Lage cache

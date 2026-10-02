@@ -162,6 +162,52 @@ describe('schedule app', () => {
       ).rejects.toThrow(/date condition is required/);
     });
 
+    it('identifies schedules with split actions', async () => {
+      const id = await createSchedule({
+        conditions: [{ op: 'is', field: 'date', value: '2020-12-20' }],
+      });
+      const { data: ruleId } = await aqlQuery(
+        q('schedules').filter({ id }).calculate('rule'),
+      );
+
+      await updateRule({
+        id: ruleId,
+        actions: [
+          {
+            op: 'set',
+            field: 'payee',
+            value: 'destination-payee',
+            options: { splitIndex: 0 },
+          },
+          { op: 'link-schedule', value: id },
+        ],
+      });
+
+      const { data: parentActionMatches } = await aqlQuery(
+        q('schedules').filter({ _has_splits: true }).select(['id']),
+      );
+      expect(parentActionMatches).toEqual([]);
+
+      await updateRule({
+        id: ruleId,
+        actions: [
+          {
+            op: 'set',
+            field: 'payee',
+            value: 'destination-payee',
+            options: { splitIndex: 1 },
+          },
+          { op: 'link-schedule', value: id },
+        ],
+      });
+
+      const { data: splitActionMatches } = await aqlQuery(
+        q('schedules').filter({ _has_splits: true }).select(['id']),
+      );
+
+      expect(splitActionMatches).toEqual([{ id }]);
+    });
+
     it('trims schedule names when creating and updating schedules', async () => {
       const id = await createSchedule({
         schedule: { name: '  Rent  ' },
@@ -805,6 +851,99 @@ describe('schedule app', () => {
         expect(
           transactions.map(({ date, amount }) => ({ date, amount })),
         ).toEqual([{ date: '2016-12-31', amount: -10000 }]);
+      } finally {
+        MockDate.reset();
+        await schedulesApp.stopServices();
+      }
+    });
+
+    it('keeps a schedule posted today paid for the rest of the day', async () => {
+      // In tests `currentDay()` is fixed at 2017-01-01, so that is "today".
+      MockDate.set(new Date(2016, 11, 31, 12));
+      schedulesApp.startServices();
+
+      try {
+        const accountId = await db.insertAccount({
+          name: 'Checking',
+          offbudget: 0,
+          closed: 0,
+        });
+
+        const id = await createSchedule({
+          schedule: { posts_transaction: true },
+          conditions: [
+            {
+              op: 'is',
+              field: 'account',
+              value: accountId,
+            },
+            {
+              op: 'is',
+              field: 'amount',
+              value: -10000,
+            },
+            {
+              op: 'is',
+              field: 'date',
+              value: {
+                start: '2016-12-18',
+                frequency: 'weekly',
+                interval: 1,
+                patterns: [],
+              },
+            },
+          ],
+        });
+        const nextDateRow = await db.first<{
+          id: string;
+        }>('SELECT id FROM schedules_next_date WHERE schedule_id = ?', [id]);
+
+        await db.update('schedules_next_date', {
+          id: nextDateRow.id,
+          local_next_date: 20170101,
+          local_next_date_ts: Date.now(),
+          base_next_date: 20170101,
+          base_next_date_ts: Date.now(),
+        });
+
+        await advanceSchedulesService(true);
+
+        const { data: transactions } = await aqlQuery(
+          q('transactions')
+            .filter({ schedule: id })
+            .select(['date', 'amount'])
+            .orderBy({ date: 'asc' }),
+        );
+
+        expect(
+          transactions.map(({ date, amount }) => ({ date, amount })),
+        ).toEqual([{ date: '2017-01-01', amount: -10000 }]);
+
+        const {
+          data: [schedule],
+        } = await aqlQuery(q('schedules').filter({ id }).select(['next_date']));
+
+        expect(schedule.next_date).toBe('2017-01-01');
+
+        // A same-day re-run (e.g. offline retry) neither posts again nor
+        // advances; the schedule stays paid on today's date. Advancement on
+        // a later day is covered by the catch-up tests above.
+        await advanceSchedulesService(true);
+
+        const { data: transactionsAfter } = await aqlQuery(
+          q('transactions')
+            .filter({ schedule: id })
+            .select(['date', 'amount'])
+            .orderBy({ date: 'asc' }),
+        );
+
+        expect(transactionsAfter).toHaveLength(1);
+
+        const {
+          data: [scheduleAfter],
+        } = await aqlQuery(q('schedules').filter({ id }).select(['next_date']));
+
+        expect(scheduleAfter.next_date).toBe('2017-01-01');
       } finally {
         MockDate.reset();
         await schedulesApp.stopServices();

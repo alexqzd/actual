@@ -11,7 +11,7 @@
   "workspaces": {
     ".": {
       "entry": ["bin/*.mts"],
-      "ignore": ["lage.config.js", ".claude/**"]
+      "ignore": ["lage.config.js", ".claude/**", ".agents/**"]
     },
     "packages/api": {
       "entry": ["index.browser.ts", "browser-worker.ts", "e2e/**/*.{ts,mjs}"],
@@ -44,6 +44,7 @@
         "src/globals.ts",
         "src/build-shims.js"
       ],
+      "ignore": ["playwright.config.d.ts"],
       "ignoreDependencies": ["plugins-service"]
     },
     "packages/desktop-electron": {
@@ -77,6 +78,15 @@
         "util"
       ]
     },
+    "packages/mobile-client": {
+      "entry": ["bin/*"],
+      "ignore": [
+        "android/app/src/main/assets/**",
+        "ios/App/App/public/**",
+        "ios/DerivedData/**"
+      ],
+      "ignoreDependencies": ["@capacitor/splash-screen"]
+    },
     "packages/plugins-service": {
       "entry": ["src/plugin-service-worker.ts"]
     },
@@ -85,7 +95,7 @@
         "app.ts",
         "src/app.ts",
         "bin/**/*.js",
-        "src/scripts/**/*.js",
+        "src/scripts/**/*.{js,ts}",
         "src/app-*/app-*.{ts,js}"
       ]
     }

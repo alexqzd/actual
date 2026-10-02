@@ -25,6 +25,7 @@ import { RSchedule } from '#server/util/rschedule';
 import { currentDay, dayFromDate, parseDate } from '#shared/months';
 import { q } from '#shared/query';
 import {
+  DEFAULT_UPCOMING_SCHEDULE_DAYS,
   extractScheduleConds,
   getDateWithSkippedWeekend,
   getHasTransactionsQuery,
@@ -305,6 +306,17 @@ async function checkIfScheduleExists(name, scheduleId) {
 function normalizeScheduleName(name) {
   const trimmedName = name?.trim();
   return trimmedName || null;
+}
+
+async function moveSchedule({
+  id,
+  targetId,
+}: {
+  id: string;
+  targetId: string | null;
+}) {
+  await db.moveSchedule(id, targetId);
+  return {};
 }
 
 export async function createSchedule({
@@ -682,7 +694,9 @@ export async function advanceSchedulesService(syncSuccess) {
       schedule.next_date,
       schedule.completed,
       hasTrans.has(schedule.id),
-      schedule.custom_upcoming_length ?? upcomingLength[0]?.value ?? '7',
+      schedule.custom_upcoming_length ??
+        upcomingLength[0]?.value ??
+        DEFAULT_UPCOMING_SCHEDULE_DAYS,
     );
 
     if (
@@ -702,6 +716,10 @@ export async function advanceSchedulesService(syncSuccess) {
           currentStatus === 'missed')
       ) {
         if (currentStatus === 'paid') {
+          if (currentSchedule.next_date === currentDay()) {
+            break;
+          }
+
           const updatedSchedule =
             await advanceRecurringScheduleFromNextDate(currentSchedule);
 
@@ -716,7 +734,7 @@ export async function advanceSchedulesService(syncSuccess) {
             await hasTransactionForSchedule(currentSchedule),
             currentSchedule.custom_upcoming_length ??
               upcomingLength[0]?.value ??
-              '7',
+              DEFAULT_UPCOMING_SCHEDULE_DAYS,
           );
           continue;
         }
@@ -728,6 +746,11 @@ export async function advanceSchedulesService(syncSuccess) {
           didPost = true;
         } else {
           failedToPost.push(currentSchedule._payee);
+          break;
+        }
+
+        // do not skip schedules due today
+        if (currentStatus === 'due') {
           break;
         }
 
@@ -749,7 +772,7 @@ export async function advanceSchedulesService(syncSuccess) {
           await hasTransactionForSchedule(currentSchedule),
           currentSchedule.custom_upcoming_length ??
             upcomingLength[0]?.value ??
-            '7',
+            DEFAULT_UPCOMING_SCHEDULE_DAYS,
         );
       }
     } else if (status === 'paid') {
@@ -793,6 +816,7 @@ export type SchedulesHandlers = {
   'schedule/create': typeof createSchedule;
   'schedule/update': typeof updateSchedule;
   'schedule/delete': typeof deleteSchedule;
+  'schedule/move': typeof moveSchedule;
   'schedule/skip-next-date': typeof skipNextDate;
   'schedule/post-transaction': typeof postTransactionForSchedule;
   'schedule/force-run-service': typeof advanceSchedulesService;
@@ -806,6 +830,7 @@ export const app = createApp<SchedulesHandlers>();
 app.method('schedule/create', mutator(undoable(createSchedule)));
 app.method('schedule/update', mutator(undoable(updateSchedule)));
 app.method('schedule/delete', mutator(undoable(deleteSchedule)));
+app.method('schedule/move', mutator(undoable(moveSchedule)));
 app.method('schedule/skip-next-date', mutator(undoable(skipNextDate)));
 app.method(
   'schedule/post-transaction',
