@@ -449,31 +449,38 @@ function getLoadedSchedules(month: string): LoadedSchedule[] {
   return cache.schedules;
 }
 
-function getPendingByScheduleUpToMonth(month: string) {
+/**
+ * Pending occurrences per schedule. With `onlyInMonth`, only those falling in
+ * the month itself; otherwise every one from today through the end of the
+ * month, since income received earlier carries over into later months.
+ */
+function getPendingBySchedule(month: string, onlyInMonth: boolean) {
   // Past months can't receive new scheduled income.
   if (month < monthUtils.monthFromDate(monthUtils.currentDay())) {
     return [];
   }
 
+  const monthStart = monthUtils.firstDayOfMonth(month);
   const monthEnd = monthUtils.lastDayOfMonth(month);
 
   return getLoadedSchedules(month).flatMap(schedule => {
-    const count = schedule.pendingDates.filter(date => date <= monthEnd).length;
+    const count = schedule.pendingDates.filter(
+      date => date <= monthEnd && (!onlyInMonth || date >= monthStart),
+    ).length;
     return count > 0 ? [{ schedule, count }] : [];
   });
 }
 
 /**
- * Pending scheduled income that makes up "expected to budget" for a month:
- * every occurrence from today through the end of the month that hasn't been
- * recorded yet. It's cumulative because income received earlier carries over
- * into later months' "to budget".
+ * Pending scheduled income expected within the month itself, for display.
+ * "Expected to budget" also counts pending income from earlier months; see
+ * calculateForecastedToBudget.
  */
 export function getSchedulesForForecastedToBudget(
   month: string,
 ): ForecastedScheduleDetail[] {
   try {
-    return getPendingByScheduleUpToMonth(month).map(({ schedule, count }) => ({
+    return getPendingBySchedule(month, true).map(({ schedule, count }) => ({
       id: schedule.id,
       name: schedule.name,
       amount: schedule.amount,
@@ -496,7 +503,7 @@ export function calculateForecastedToBudget(
   currentToBudget: number,
 ): number {
   try {
-    return getPendingByScheduleUpToMonth(month).reduce(
+    return getPendingBySchedule(month, false).reduce(
       (total, { schedule, count }) => total + schedule.amount * count,
       currentToBudget,
     );

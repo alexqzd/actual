@@ -164,8 +164,9 @@ describe('calculateForecastedToBudget', () => {
 
     expect(calculateForecastedToBudget('2017-01', 50)).toBe(1050);
     expect(calculateForecastedToBudget('2017-03', 50)).toBe(3050);
+    // The breakdown only lists income expected within the month itself
     expect(getSchedulesForForecastedToBudget('2017-03')).toMatchObject([
-      { name: 'Salary', amount: 1000, occurrences: 3, total: 3000 },
+      { name: 'Salary', amount: 1000, occurrences: 1, total: 1000 },
     ]);
   });
 
